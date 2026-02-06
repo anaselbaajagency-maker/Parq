@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Mac files
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Build output
+/build
+
+# Misc
+*.log

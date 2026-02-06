@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: parq_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: parq
+      POSTGRES_PASSWORD: parq_password
+      POSTGRES_DB: parq_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: parq_phpmyadmin
+    environment:
+      PMA_HOST: host.docker.internal
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8081:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres_data:
