@@ -60,7 +60,7 @@ export default function CategoryBar({ type }: CategoryBarProps) {
                 const data = await fetchCategories(type === 'all' ? undefined : type, true);
 
                 // Add "All" category manually
-                const allCategory: Category = {
+                const allCategory: any = {
                     id: 'all',
                     name: 'All',
                     slug: 'all',
@@ -139,15 +139,15 @@ export default function CategoryBar({ type }: CategoryBarProps) {
                 >
                     {filteredCategories.map((cat) => {
                         const Icon = iconMap[cat.icon as string] || LayoutGrid;
-                        const catType = cat.id === 'all' ? (type === 'all' ? 'rent' : type) : cat.type;
+                        const catType = (cat.id as any) === 'all' ? (type === 'all' ? 'rent' : type) : cat.type;
                         const slug = (cat.slug || cat.id).toString();
                         if (!slug) return null; // Safeguard against missing slug/id
-                        const href = routes.category(catType, slug);
+                        const href = routes.category(catType as any, slug);
                         const active = checkIsActive(slug, catType);
 
                         // Use localized name from database
                         let label: string;
-                        if (cat.id === 'all') {
+                        if ((cat.id as any) === 'all') {
                             label = t('all');
                         } else if (locale === 'ar' && cat.name_ar) {
                             label = cat.name_ar;

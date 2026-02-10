@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
 import { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import styles from './ListingsCarousel.module.css';
 import { Link } from '../navigation';
-import ListingCard, { Listing } from './ListingCard';
+import ListingCard from './ListingCard';
+import { Listing } from '@/types/listing';
 import { routes } from '@/lib/routes';
 
 interface ListingsCarouselProps {
@@ -32,7 +33,7 @@ export default function ListingsCarousel({ title, listings, viewAllHref }: Listi
         <div className={styles.container}>
             <div className={styles.header}>
                 {viewAllHref ? (
-                    <Link href={viewAllHref} className={styles.titleLink}>
+                    <Link href={viewAllHref as any} className={styles.titleLink}>
                         <h2 className={styles.title}>{title} ›</h2>
                     </Link>
                 ) : (
@@ -54,7 +55,7 @@ export default function ListingsCarousel({ title, listings, viewAllHref }: Listi
                 {listings.map((item) => {
                     if (!item || !item.id || !item.title) return null;
                     return (
-                        <Link key={item.id} href={routes.listing(item.slug || item.id.toString())} className={styles.cardLink}>
+                        <Link key={item.id} href={routes.listing(item.slug || item.id.toString()) as any} className={styles.cardLink}>
                             <ListingCard item={item} />
                         </Link>
                     );

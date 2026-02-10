@@ -20,13 +20,14 @@ const ICON_NAMES = Object.keys(ICONS);
 
 export default function CategoryDialog({ isOpen, onClose, onSave, category }: CategoryDialogProps) {
     const [formData, setFormData] = useState<Partial<Category>>({
-        id: '',
+        slug: '',
         name: '',
         name_fr: '',
         name_ar: '',
         type: 'rent',
         icon: 'LayoutGrid',
-        description: ''
+        description: '',
+        daily_cost: 0
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -37,13 +38,14 @@ export default function CategoryDialog({ isOpen, onClose, onSave, category }: Ca
                 setFormData(category);
             } else {
                 setFormData({
-                    id: '',
+                    slug: '',
                     name: '',
                     name_fr: '',
                     name_ar: '',
                     type: 'rent',
                     icon: 'LayoutGrid',
-                    description: ''
+                    description: '',
+                    daily_cost: 0
                 });
             }
             setError('');
@@ -92,13 +94,13 @@ export default function CategoryDialog({ isOpen, onClose, onSave, category }: Ca
 
                         <div className={styles.formGrid}>
                             <div className={styles.formGroup}>
-                                <label className={styles.label}>ID (Unique Slug)</label>
+                                <label className={styles.label}>Unique Slug</label>
                                 <input
                                     type="text"
                                     required
                                     disabled={!!category}
-                                    value={formData.id}
-                                    onChange={e => setFormData({ ...formData, id: e.target.value })}
+                                    value={formData.slug || ''}
+                                    onChange={e => setFormData({ ...formData, slug: e.target.value })}
                                     className={`${styles.input} ${category ? styles.inputDisabled : ''}`}
                                     placeholder="e.g. construction"
                                 />
@@ -181,13 +183,13 @@ export default function CategoryDialog({ isOpen, onClose, onSave, category }: Ca
                         </div>
 
                         <div className={styles.formGroup}>
-                            <label className={styles.label}>Daily Fee (DH)</label>
+                            <label className={styles.label}>Daily Cost (DH)</label>
                             <input
                                 type="number"
                                 min="0"
                                 step="any"
-                                value={formData.daily_fee || 0}
-                                onChange={e => setFormData({ ...formData, daily_fee: parseFloat(e.target.value) })}
+                                value={formData.daily_cost || 0}
+                                onChange={e => setFormData({ ...formData, daily_cost: parseFloat(e.target.value) })}
                                 className={styles.input}
                                 placeholder="Cost per day (e.g. 10.00)"
                             />

@@ -14,6 +14,8 @@ export interface Category {
     name_ar?: string;
     name_fr?: string;
     slug: string;
+    slug_ar?: string;
+    slug_fr?: string;
     type: string;
     icon: string;
     daily_cost: number;
@@ -49,6 +51,8 @@ export interface Settings {
     maintenance_mode?: boolean | string | number;
     maintenance_message?: string;
     footer_copyright_text?: string;
+    footer_show_social_links?: boolean | string | number;
+    homepage_categories?: any[];
 }
 
 export interface ListingCar {

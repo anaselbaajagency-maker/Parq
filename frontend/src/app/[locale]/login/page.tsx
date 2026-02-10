@@ -58,7 +58,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (mounted && isAuthenticated) {
-            router.push(user?.role === 'ADMIN' ? '/admin' : '/dashboard');
+            router.push((user?.role === 'ADMIN' ? '/admin' : '/tableau-de-bord') as any);
         }
     }, [isAuthenticated, mounted, router, user]);
 

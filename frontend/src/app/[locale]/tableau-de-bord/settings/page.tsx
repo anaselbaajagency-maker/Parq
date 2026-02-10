@@ -22,7 +22,7 @@ export default function SettingsPage() {
 
     if (!user) return null;
 
-    const isGoogleUser = !!user.google_id;
+    const isGoogleUser = !!(user as any).google_id;
 
     const tabs = [
         { id: 'profile', label: t('settings_page.personal_info'), icon: User },
@@ -85,8 +85,8 @@ export default function SettingsPage() {
                             {/* Avatar */}
                             <div className={styles.avatarSection}>
                                 <div className={styles.avatar}>
-                                    {user.avatar ? (
-                                        <img src={user.avatar} alt={user.full_name} className={styles.avatarImg} />
+                                    {(user as any).avatar ? (
+                                        <img src={(user as any).avatar} alt={user.full_name} className={styles.avatarImg} />
                                     ) : (
                                         user.full_name?.charAt(0)
                                     )}

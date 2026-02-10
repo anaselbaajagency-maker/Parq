@@ -7,14 +7,14 @@ import CategoryBar from '../../../../components/CategoryBar';
 import ListingCard from '../../../../components/ListingCard';
 import { Link } from '../../../../navigation';
 import { ArrowLeft, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
-import { fetchListingsByCategory, Listing as ApiListing, fetchCities, City } from '@/lib/api';
+import { fetchListingsByCategory, Listing as ApiListing, fetchCities, City, fetchCategories } from '@/lib/api';
 import { routes } from '@/lib/routes';
 import styles from './categoryPage.module.css';
 
 interface Props {
     categoryId: string; // This acts as the category slug or ID
     citySlug?: string;
-    category: Category;
+    category?: Category;
 }
 
 export default function BuyCategoryClient({ categoryId, citySlug, category }: Props) {
@@ -50,27 +50,43 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
         return city.name;
     };
 
-    const getCategoryName = (cat: Category) => {
+    const getCategoryName = (cat: Category | null | undefined) => {
+        if (!cat) return '';
         if (locale === 'ar' && cat.name_ar) return cat.name_ar;
         if (locale === 'fr' && cat.name_fr) return cat.name_fr;
         return cat.name;
     };
-
     const formatPriceLabel = (range: { label: string, min: number, max: number }) => {
         if (range.label === 'all_prices' || range.label === 'HomePage.all_prices') return tHome('all_prices');
         return range.label;
     };
 
+    const [currentCategory, setCurrentCategory] = useState<Category | null>(category || null);
+
     useEffect(() => {
         async function loadData() {
             try {
-                const [categoryListings, citiesData] = await Promise.all([
+                const promises: Promise<any>[] = [
                     fetchListingsByCategory(categoryId, 50, citySlug),
                     fetchCities()
-                ]);
+                ];
+
+                if (!currentCategory) {
+                    promises.push(fetchCategories('buy'));
+                }
+
+                const results = await Promise.all(promises);
+                const categoryListings = results[0];
+                const citiesData = results[1];
+
+                if (!currentCategory && results[2]) {
+                    const cats = results[2] as Category[];
+                    const found = cats.find(c => c.slug === categoryId);
+                    if (found) setCurrentCategory(found);
+                }
 
                 // Filter for 'buy' type
-                const buyListings = categoryListings.filter(l => l.type === 'buy');
+                const buyListings = categoryListings.filter((l: any) => l.type === 'buy');
                 setListings(buyListings);
                 setFilteredListings(buyListings);
                 setCities(citiesData);
@@ -81,7 +97,9 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
             }
         }
         loadData();
-    }, [categoryId, citySlug]);
+    }, [categoryId, citySlug, currentCategory]);
+
+
 
     // Apply filters
     useEffect(() => {
@@ -143,8 +161,8 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
             <div className={styles.stickyHeader}>
                 {/* Page Title */}
                 <div className={styles.pageTitle}>
-                    <h1>{getCategoryName(category)}</h1>
-                    <p>{category.description || getCategoryName(category)}</p>
+                    <h1>{currentCategory ? getCategoryName(currentCategory) : '...'}</h1>
+                    <p>{(currentCategory?.description) || (currentCategory ? getCategoryName(currentCategory) : '')}</p>
                 </div>
 
                 {/* Category Bar */}
@@ -252,7 +270,7 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
 
                         return (
                             <Link key={item.id} href={routes.listing(item.slug || item.id.toString()) as any} className={styles.cardLink}>
-                                <ListingCard item={cardProps} />
+                                <ListingCard item={cardProps as any} />
                             </Link>
                         );
                     })}
@@ -299,7 +317,7 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
                                             <input
                                                 type="radio"
                                                 name="city"
-                                                checked={selectedCity === city.id}
+                                                checked={selectedCity === city.id.toString()}
                                                 onChange={() => setSelectedCity(city.id.toString())}
                                             />
                                             <span>{getCityName(city)}</span>

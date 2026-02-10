@@ -338,7 +338,7 @@ export default function CreateListingPage() {
 
                     <button
                         type="submit"
-                        disabled={loading || (wallet && wallet.days_remaining <= 0)}
+                        disabled={loading || (wallet ? wallet.days_remaining <= 0 : false)}
                         className={`${styles.submitBtn} ${(wallet && wallet.days_remaining <= 0) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                     >
                         {loading ? t('btn_creating') : t('btn_create')}

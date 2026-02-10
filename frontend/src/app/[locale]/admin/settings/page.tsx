@@ -55,10 +55,10 @@ export default function AdminSettingsPage() {
 
                 if (settingsData) {
                     setHomepageCategories(settingsData.homepage_categories || []);
-                    setListingsCount(settingsData.homepage_listings_count || 6);
+                    setListingsCount(Number(settingsData.homepage_listings_count || 6));
                     setShowLanguageSwitcher(settingsData.header_show_language_switcher ?? true);
                     setShowLoginButton(settingsData.header_show_login_button ?? true);
-                    setShowSocialLinks(settingsData.footer_show_social_links ?? true);
+                    setShowSocialLinks(settingsData.footer_show_social_links === true || settingsData.footer_show_social_links === '1' || settingsData.footer_show_social_links === 1);
                     setCopyrightText(settingsData.footer_copyright_text || '');
                 }
             } catch (error) {

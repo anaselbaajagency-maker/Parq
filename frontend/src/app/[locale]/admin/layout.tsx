@@ -26,7 +26,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             if (!isAuthenticated) {
                 router.push('/login');
             } else if (user?.role !== 'ADMIN') {
-                router.push('/dashboard'); // Restrict strictly to ADMIN
+                router.push('/tableau-de-bord'); // Restrict strictly to ADMIN
             }
         }
     }, [isAuthenticated, user, router, mounted]);
