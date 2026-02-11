@@ -139,7 +139,7 @@ export default function CategoryBar({ type }: CategoryBarProps) {
                 >
                     {filteredCategories.map((cat) => {
                         const Icon = iconMap[cat.icon as string] || LayoutGrid;
-                        const catType = (cat.id as any) === 'all' ? (type === 'all' ? 'rent' : type) : cat.type;
+                        const catType = (cat.id as any) === 'all' ? (type === 'all' ? 'rent' : type) : (cat.type as 'rent' | 'buy');
                         const slug = (cat.slug || cat.id).toString();
                         if (!slug) return null; // Safeguard against missing slug/id
                         const href = routes.category(catType as any, slug);
