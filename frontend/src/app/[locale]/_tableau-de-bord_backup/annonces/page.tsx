@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function MyListingsPage() {
     const t = await getTranslations('Listings');
-    let listings = [];
+    let listings: any[] = [];
 
     try {
         // Fetch user's listings via API (assuming API filters by auth token owner or specific endpoint)

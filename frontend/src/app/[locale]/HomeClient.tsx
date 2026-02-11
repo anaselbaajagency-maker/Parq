@@ -158,8 +158,8 @@ export default function HomeClient({ locale }: { locale: string }) {
                 if (listings.length === 0) return null;
                 if (category.is_active !== undefined && (Number(category.is_active) === 0 || category.is_active === false)) return null;
 
-                const catType = category.type || 'rent';
-                const viewAllHref = routes.category(catType, categoryId);
+                const catType = (category.type as 'rent' | 'buy') || 'rent';
+                const viewAllHref = routes.category(catType as any, categoryId);
 
                 // Localized name helper
                 const getLocalizedCategoryName = (cat: Category) => {
@@ -172,7 +172,7 @@ export default function HomeClient({ locale }: { locale: string }) {
                     <ListingsCarousel
                         key={categoryId}
                         title={getLocalizedCategoryName(category)}
-                        listings={formatListings(listings)}
+                        listings={formatListings(listings) as any}
                         viewAllHref={viewAllHref}
                     />
                 );

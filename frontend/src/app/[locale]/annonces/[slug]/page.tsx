@@ -5,7 +5,11 @@ import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { MapPin, Calendar, Tag, Info } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+
+
+export function generateStaticParams() {
+    return [{ slug: 'default' }];
+}
 
 export default async function ListingPage({
     params,
@@ -49,7 +53,7 @@ export default async function ListingPage({
                             <h1 className="text-3xl font-black text-gray-900 mb-2 leading-tight tracking-tight">{listing.title}</h1>
                             <div className="flex items-center gap-2 text-gray-500 text-sm">
                                 <MapPin size={16} />
-                                <span>{listing.location || listing.city?.name}</span>
+                                <span>{listing.city?.name}</span>
                             </div>
                         </div>
 
@@ -108,7 +112,7 @@ export default async function ListingPage({
                         {/* Map Section */}
                         <div className="bg-white rounded-[2rem] p-2 shadow-sm border border-gray-100">
                             <div className="rounded-[1.5rem] overflow-hidden h-[400px] relative z-0">
-                                <ListingMap location={listing.location || listing.city?.name || 'Casablanca'} />
+                                <ListingMap location={listing.city?.name || 'Casablanca'} />
                             </div>
                         </div>
                     </div>
@@ -124,7 +128,7 @@ export default async function ListingPage({
                                     <h1 className="text-3xl font-black text-gray-900 leading-tight tracking-tight mb-2">{listing.title}</h1>
                                     <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
                                         <MapPin size={16} className="text-gray-400" />
-                                        <span>{listing.location || listing.city?.name}</span>
+                                        <span>{listing.city?.name}</span>
                                     </div>
                                 </div>
 

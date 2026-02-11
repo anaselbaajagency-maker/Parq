@@ -19,8 +19,8 @@ export default function ListingsClient() {
     const [processingId, setProcessingId] = useState<number | string | null>(null);
 
     useEffect(() => {
-        if (user?.id || user?.google_id) {
-            const userId = user.id;
+        if (user?.id || (user as any)?.google_id) {
+            const userId = user!.id;
             fetchUserListings(userId)
                 .then(setListings)
                 .finally(() => setLoading(false));
@@ -49,10 +49,8 @@ export default function ListingsClient() {
 
         setProcessingId(id);
         try {
-            const success = await deleteListing(id);
-            if (success) {
-                setListings(prev => prev.filter(l => l.id !== id));
-            }
+            await deleteListing(id);
+            setListings(prev => prev.filter(l => l.id !== id));
         } catch (error) {
             console.error('Failed to delete listing', error);
         } finally {
@@ -150,7 +148,7 @@ export default function ListingsClient() {
                             {/* Content */}
                             <div className={styles.cardContent}>
                                 <h3 className={styles.cardTitle}>
-                                    <Link href={routes.listing(item.slug || item.id.toString())}>
+                                    <Link href={routes.listing(item.slug || item.id.toString()) as any}>
                                         {item.title}
                                     </Link>
                                 </h3>
@@ -190,7 +188,7 @@ export default function ListingsClient() {
 
                                 return (
                                     <div className={styles.cardActions}>
-                                        <Link href={`/tableau-de-bord/annonces/edit/${item.id}`} className={styles.actionBtn}>
+                                        <Link href={`/tableau-de-bord/annonces/edit/${item.id}` as any} className={styles.actionBtn}>
                                             <Edit2 size={16} />
                                             Edit
                                         </Link>

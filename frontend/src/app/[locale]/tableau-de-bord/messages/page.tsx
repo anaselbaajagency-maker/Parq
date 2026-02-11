@@ -81,7 +81,7 @@ export default function MessagesPage() {
             // Optimistic update
             const optimisticMsg: Message = {
                 id: tempId,
-                sender_id: user!.id,
+                sender_id: Number(user!.id),
                 receiver_id: selectedChat,
                 content: message,
                 created_at: new Date().toISOString(),
@@ -182,14 +182,14 @@ export default function MessagesPage() {
                         {messages.map(msg => (
                             <div
                                 key={msg.id}
-                                className={`${styles.messageRow} ${msg.sender_id === user?.id ? styles.messageRowMe : ''}`}
+                                className={`${styles.messageRow} ${msg.sender_id === Number(user?.id) ? styles.messageRowMe : ''}`}
                             >
-                                <div className={`${styles.messageBubble} ${msg.sender_id === user?.id ? styles.messageBubbleMe : ''}`}>
+                                <div className={`${styles.messageBubble} ${msg.sender_id === Number(user?.id) ? styles.messageBubbleMe : ''}`}>
                                     <p>{msg.content}</p>
                                 </div>
                                 <span className={styles.messageTime}>
                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    {msg.sender_id === user?.id && (
+                                    {msg.sender_id === Number(user?.id) && (
                                         msg.read_at ? <CheckCheck size={14} /> : <Check size={14} />
                                     )}
                                 </span>

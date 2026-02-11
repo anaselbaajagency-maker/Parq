@@ -44,8 +44,15 @@ export default function CreateListingPage() {
         setLoading(true);
         try {
             await createListing({
-                ...formData,
+                title: formData.title,
+                description: formData.description,
                 price: Number(formData.price),
+                price_unit: formData.price_unit,
+                type: formData.type as 'rent' | 'buy',
+                category_id: Number(formData.category_id),
+                city_id: Number(formData.city_id),
+                image: formData.image,
+                is_available: formData.is_available,
                 // Map category_id to category for legacy support if needed, but backend uses category_id now
             });
             alert('Listing created successfully!');

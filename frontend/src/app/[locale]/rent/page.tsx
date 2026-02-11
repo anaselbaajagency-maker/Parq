@@ -304,7 +304,7 @@ export default function RentPage() {
                                             <input
                                                 type="radio"
                                                 name="city"
-                                                checked={selectedCity === city.id}
+                                                checked={selectedCity === city.id.toString()}
                                                 onChange={() => setSelectedCity(city.id.toString())}
                                             />
                                             <span>{getCityName(city)}</span>

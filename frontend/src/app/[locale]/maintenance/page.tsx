@@ -1,30 +1,12 @@
-import { fetchSettings } from '@/lib/api';
-import { ShieldAlert, Hammer, Wrench } from 'lucide-react';
-import styles from './maintenance.module.css';
+import { setRequestLocale } from 'next-intl/server';
+import MaintenanceClient from './MaintenanceClient';
 
-export const dynamic = 'force-dynamic';
+export default async function MaintenancePage({ params }: { params: Promise<{ locale: string }> }) {
+    // If params are passed (optional for top level pages sometimes but here it is [locale] layout child)
+    // Actually maintenance page might not receive params if it is not dynamic?
+    // It is under [locale] folder, so it receives locale.
+    const { locale } = await params;
+    setRequestLocale(locale);
 
-export default async function MaintenancePage() {
-    const settings = await fetchSettings();
-    const message = settings?.maintenance_message || "We are currently improving our platform to serve you better. We'll be back shortly.";
-
-    return (
-        <div className={styles.container}>
-            <div className={styles.card}>
-                <div className={styles.iconWrapper}>
-                    <Wrench size={40} strokeWidth={2.5} />
-                </div>
-
-                <h1 className={styles.title}>
-                    Maintenance
-                </h1>
-
-                <p className={styles.message}>
-                    {message}
-                </p>
-
-                <div className={styles.brand}>PARQ</div>
-            </div>
-        </div>
-    );
+    return <MaintenanceClient />;
 }

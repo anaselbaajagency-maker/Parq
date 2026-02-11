@@ -130,7 +130,7 @@ export default function AdminPage() {
             {/* Quick Actions Grid */}
             <h2 className={styles.sectionTitle}>Quick Actions</h2>
             <div className={styles.quickActionsGrid}>
-                <Link href="/admin/users" className={styles.actionCard}>
+                <Link href={"/admin/users" as any} className={styles.actionCard}>
                     <div className={styles.actionIcon}>
                         <Users size={24} />
                     </div>
@@ -141,7 +141,7 @@ export default function AdminPage() {
                     <ArrowRight className={styles.arrow} size={20} />
                 </Link>
 
-                <Link href="/admin/listings" className={styles.actionCard}>
+                <Link href={"/admin/listings" as any} className={styles.actionCard}>
                     <div className={styles.actionIcon}>
                         <Package size={24} />
                     </div>
@@ -152,7 +152,7 @@ export default function AdminPage() {
                     <ArrowRight className={styles.arrow} size={20} />
                 </Link>
 
-                <Link href="/admin/homepage" className={styles.actionCard}>
+                <Link href={"/admin/homepage" as any} className={styles.actionCard}>
                     <div className={styles.actionIcon}>
                         <Home size={24} />
                     </div>
@@ -163,7 +163,7 @@ export default function AdminPage() {
                     <ArrowRight className={styles.arrow} size={20} />
                 </Link>
 
-                <Link href="/admin/categories" className={styles.actionCard}>
+                <Link href={"/admin/categories" as any} className={styles.actionCard}>
                     <div className={styles.actionIcon}>
                         <Layers size={24} />
                     </div>
@@ -174,7 +174,7 @@ export default function AdminPage() {
                     <ArrowRight className={styles.arrow} size={20} />
                 </Link>
 
-                <Link href="/admin/settings" className={styles.actionCard}>
+                <Link href={"/admin/settings" as any} className={styles.actionCard}>
                     <div className={styles.actionIcon}>
                         <Settings size={24} />
                     </div>
