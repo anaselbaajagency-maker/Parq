@@ -1,4 +1,5 @@
 'use client';
+// Force deployment update
 
 import { useState, useEffect } from 'react';
 import { Category } from '@/lib/api';
