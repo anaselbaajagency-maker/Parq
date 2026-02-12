@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\City;
+use Illuminate\Database\Seeder;
 
 class CitySeeder extends Seeder
 {
@@ -16,7 +16,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'الدار البيضاء',
                 'slug' => 'casablanca',
                 'region' => 'Casablanca-Settat',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Rabat',
@@ -24,7 +24,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'الرباط',
                 'slug' => 'rabat',
                 'region' => 'Rabat-Salé-Kénitra',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Marrakech',
@@ -32,7 +32,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'مراكش',
                 'slug' => 'marrakech',
                 'region' => 'Marrakech-Safi',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Fes',
@@ -40,7 +40,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'فاس',
                 'slug' => 'fes',
                 'region' => 'Fès-Meknès',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Tangier',
@@ -48,7 +48,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'طنجة',
                 'slug' => 'tangier',
                 'region' => 'Tanger-Tétouan-Al Hoceïma',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Agadir',
@@ -56,7 +56,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'أكادير',
                 'slug' => 'agadir',
                 'region' => 'Souss-Massa',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Meknes',
@@ -64,7 +64,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'مكناس',
                 'slug' => 'meknes',
                 'region' => 'Fès-Meknès',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Oujda',
@@ -72,7 +72,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'وجدة',
                 'slug' => 'oujda',
                 'region' => 'Oriental',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Kenitra',
@@ -80,7 +80,7 @@ class CitySeeder extends Seeder
                 'name_ar' => 'القنيطرة',
                 'slug' => 'kenitra',
                 'region' => 'Rabat-Salé-Kénitra',
-                'country' => 'Maroc'
+                'country' => 'Maroc',
             ],
             [
                 'name' => 'Tetouan',
@@ -88,8 +88,8 @@ class CitySeeder extends Seeder
                 'name_ar' => 'تطوان',
                 'slug' => 'tetouan',
                 'region' => 'Tanger-Tétouan-Al Hoceïma',
-                'country' => 'Maroc'
-            ]
+                'country' => 'Maroc',
+            ],
         ];
 
         foreach ($cities as $city) {

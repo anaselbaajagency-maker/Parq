@@ -2,13 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Listing;
 use App\Models\Category;
+use App\Models\Listing;
 use App\Models\ListingImage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
-use Exception;
 
 class ListingService
 {
@@ -16,7 +14,7 @@ class ListingService
     {
         return DB::transaction(function () use ($data, $userId) {
             $category = Category::findOrFail($data['category_id']);
-            
+
             // Prepare main listing data
             $listingData = [
                 'user_id' => $userId,
@@ -55,8 +53,8 @@ class ListingService
     {
         return DB::transaction(function () use ($listing, $data) {
             $updateData = collect($data)->only([
-                'category_id', 'city_id', 'title', 'description', 'price', 
-                'price_unit', 'price_type', 'location', 'latitude', 'longitude', 'is_available'
+                'category_id', 'city_id', 'title', 'description', 'price',
+                'price_unit', 'price_type', 'location', 'latitude', 'longitude', 'is_available',
             ])->toArray();
 
             if (isset($data['title']) && $data['title'] !== $listing->title) {
@@ -67,7 +65,7 @@ class ListingService
 
             // Check if category changed (unlikely/complex business rule, usually discouraged, but handled)
             $category = Category::find($data['category_id'] ?? $listing->category_id);
-            
+
             // If category matches, update specific data
             if ($category->id === $listing->category_id) {
                 // Determine type from category, if relation doesn't exist create it, else update
@@ -77,15 +75,15 @@ class ListingService
             // Handle Images (Sync: Replace all or Add/Remove specific? For API assume replace list or specific endpoint)
             // Ideally we separate image management, but for basic Update:
             if (isset($data['images'])) {
-               // Logic depends on frontend implementation. 
-               // For simplicity, we assume we receive a list of new/existing images or handle separately.
-               // Let's assume specific endpoint for images or append logic. 
-               // Here implementation is tricky without clear requirements. 
-               // I will add a separate method `syncImages` if needed, 
-               // or assume `images` contains full list of valid image paths.
-               
-               // For now, let's skip full image sync in update unless specified, to avoid accidental deletion.
-               // Use separate add/remove endpoints usually better.
+                // Logic depends on frontend implementation.
+                // For simplicity, we assume we receive a list of new/existing images or handle separately.
+                // Let's assume specific endpoint for images or append logic.
+                // Here implementation is tricky without clear requirements.
+                // I will add a separate method `syncImages` if needed,
+                // or assume `images` contains full list of valid image paths.
+
+                // For now, let's skip full image sync in update unless specified, to avoid accidental deletion.
+                // Use separate add/remove endpoints usually better.
             }
 
             return $listing->fresh(['images', 'car', 'machinery', 'transport', 'driver']);
@@ -118,22 +116,22 @@ class ListingService
                     collect($data)->only(['capacity', 'air_conditioning', 'usage_type'])->toArray()
                 );
                 break;
-            
+
             case 'driver':
             case 'listing_drivers':
-                 $listing->driver()->updateOrCreate(
+                $listing->driver()->updateOrCreate(
                     ['listing_id' => $listing->id],
                     collect($data)->only(['license_type', 'experience_years', 'is_available'])->toArray()
-                 );
-                 break;
+                );
+                break;
         }
     }
 
     protected function handleImages(Listing $listing, array $images)
     {
-        // $images expects array of objects or strings? 
+        // $images expects array of objects or strings?
         // Let's assume array of ['path' => '...', 'is_main' => bool]
-        
+
         // If just array of strings
         foreach ($images as $index => $imageData) {
             if (is_string($imageData)) {
@@ -149,7 +147,7 @@ class ListingService
                     'listing_id' => $listing->id,
                     'image_path' => $path,
                     'is_main' => $isMain,
-                    'sort_order' => $index
+                    'sort_order' => $index,
                 ]);
             }
         }
@@ -159,6 +157,7 @@ class ListingService
     {
         $slug = Str::slug($title);
         $count = Listing::where('slug', 'LIKE', "{$slug}%")->count();
+
         return $count ? "{$slug}-{$count}" : $slug;
     }
 }

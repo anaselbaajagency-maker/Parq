@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Listing;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class ListingPolicy
 {
@@ -21,7 +20,7 @@ class ListingPolicy
      */
     public function update(User $user, Listing $listing): bool
     {
-        return $user->id === $listing->user_id || ($user->role === 'admin'); 
+        return $user->id === $listing->user_id || ($user->role === 'admin');
     }
 
     /**

@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentMethod;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class AdminPaymentMethodController extends Controller
 {
@@ -15,6 +15,7 @@ class AdminPaymentMethodController extends Controller
     public function index(): JsonResponse
     {
         $methods = PaymentMethod::ordered()->get()->makeVisible('config');
+
         return response()->json([
             'success' => true,
             'data' => $methods,
@@ -36,7 +37,7 @@ class AdminPaymentMethodController extends Controller
             'is_active' => 'boolean',
             'sort_order' => 'integer',
             'config' => 'nullable|array',
-            'icon' => 'nullable|string|max:50'
+            'icon' => 'nullable|string|max:50',
         ]);
 
         $method->update($validated);
@@ -54,13 +55,13 @@ class AdminPaymentMethodController extends Controller
     public function toggle(int $id): JsonResponse
     {
         $method = PaymentMethod::findOrFail($id);
-        $method->is_active = !$method->is_active;
+        $method->is_active = ! $method->is_active;
         $method->save();
 
         return response()->json([
             'success' => true,
             'message' => 'Statut mis à jour',
-            'is_active' => $method->is_active
+            'is_active' => $method->is_active,
         ]);
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -37,10 +36,10 @@ class ListingApprovedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                    ->subject('Votre annonce a été validée')
-                    ->line("Votre annonce '{$this->listing->title}' a été validée par notre équipe.")
-                    ->action('Voir mon annonce', url('/dashboard/listings'))
-                    ->line('Merci de faire confiance à Parq!');
+            ->subject('Votre annonce a été validée')
+            ->line("Votre annonce '{$this->listing->title}' a été validée par notre équipe.")
+            ->action('Voir mon annonce', url('/dashboard/listings'))
+            ->line('Merci de faire confiance à Parq!');
     }
 
     /**
@@ -54,7 +53,7 @@ class ListingApprovedNotification extends Notification
             'listing_id' => $this->listing->id,
             'title' => 'Annonce Validée',
             'message' => "Votre annonce '{$this->listing->title}' a été validée et est maintenant en ligne.",
-            'type' => 'listing_approved'
+            'type' => 'listing_approved',
         ];
     }
 }

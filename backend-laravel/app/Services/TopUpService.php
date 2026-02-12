@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\TopUpRequest;
+use App\Models\User;
 use App\Models\WalletTransaction;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class TopUpService
@@ -42,7 +42,7 @@ class TopUpService
         // Store proof image if provided
         $proofPath = null;
         if ($proofImage) {
-            $proofPath = $proofImage->store('topup-proofs/' . $user->id, 'public');
+            $proofPath = $proofImage->store('topup-proofs/'.$user->id, 'public');
         }
 
         return TopUpRequest::create([
@@ -51,7 +51,7 @@ class TopUpService
             'method' => TopUpRequest::METHOD_BANK_TRANSFER,
             'status' => TopUpRequest::STATUS_PENDING,
             'proof_image' => $proofPath,
-            'payment_reference' => 'VIR-' . strtoupper(uniqid()) . '-' . time(),
+            'payment_reference' => 'VIR-'.strtoupper(uniqid()).'-'.time(),
         ]);
     }
 
@@ -60,7 +60,7 @@ class TopUpService
      */
     public function uploadProof(TopUpRequest $request, UploadedFile $proofImage): TopUpRequest
     {
-        if (!$request->isPending()) {
+        if (! $request->isPending()) {
             throw new \RuntimeException('Cette demande ne peut plus être modifiée');
         }
 
@@ -69,7 +69,7 @@ class TopUpService
             Storage::disk('public')->delete($request->proof_image);
         }
 
-        $proofPath = $proofImage->store('topup-proofs/' . $request->user_id, 'public');
+        $proofPath = $proofImage->store('topup-proofs/'.$request->user_id, 'public');
 
         $request->update(['proof_image' => $proofPath]);
 
@@ -81,7 +81,7 @@ class TopUpService
      */
     public function approve(TopUpRequest $request, User $admin, ?string $notes = null): TopUpRequest
     {
-        if (!$request->isPending()) {
+        if (! $request->isPending()) {
             throw new \RuntimeException('Cette demande a déjà été traitée');
         }
 
@@ -120,7 +120,7 @@ class TopUpService
      */
     public function reject(TopUpRequest $request, User $admin, string $reason): TopUpRequest
     {
-        if (!$request->isPending() && !$request->isProcessing()) {
+        if (! $request->isPending() && ! $request->isProcessing()) {
             throw new \RuntimeException('Cette demande a déjà été traitée');
         }
 
@@ -192,7 +192,7 @@ class TopUpService
             throw new \RuntimeException('Vous n\'êtes pas autorisé à annuler cette demande');
         }
 
-        if (!$request->isPending()) {
+        if (! $request->isPending()) {
             throw new \RuntimeException('Cette demande ne peut plus être annulée');
         }
 

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('payment_methods')) {
+        if (! Schema::hasTable('payment_methods')) {
             Schema::create('payment_methods', function (Blueprint $table) {
                 $table->id();
                 $table->string('code')->unique(); // bank_transfer, cmi, payzone, cashplus

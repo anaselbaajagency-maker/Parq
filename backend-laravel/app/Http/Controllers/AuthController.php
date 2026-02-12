@@ -88,9 +88,10 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Logged out'
+            'message' => 'Logged out',
         ]);
     }
+
     public function googleLogin(Request $request)
     {
         $request->validate([
@@ -104,7 +105,7 @@ class AuthController extends Controller
 
         if ($user) {
             // Update google_id if missing
-            if (!$user->google_id) {
+            if (! $user->google_id) {
                 $user->google_id = $request->google_id;
                 $user->save();
             }
@@ -138,17 +139,17 @@ class AuthController extends Controller
     public function forgotPassword(Request $request)
     {
         $request->validate(['email' => 'required|email']);
-        
+
         // We will send the password reset link if the user exists
         // This relies on default Laravel Password Broker
         $status = \Illuminate\Support\Facades\Password::sendResetLink(
             $request->only('email')
         );
 
-        // Always return success to prevent email enumeration, 
+        // Always return success to prevent email enumeration,
         // or return actual status if preferred for UX (but less secure)
         // User requested: "Si un compte existe... vous recevrez..."
-        
+
         if ($status === \Illuminate\Support\Facades\Password::RESET_LINK_SENT) {
             return response()->json(['success' => true, 'message' => __($status)]);
         }
@@ -157,8 +158,8 @@ class AuthController extends Controller
         // Or specific error? The user prompt implies success message is what they want.
         // "Si un compte existe pour X, vous recevrez..."
         return response()->json([
-            'success' => true, 
-            'message' => 'Si un compte existe pour cet email, vous recevrez les instructions sous peu.'
+            'success' => true,
+            'message' => 'Si un compte existe pour cet email, vous recevrez les instructions sous peu.',
         ]);
     }
 }

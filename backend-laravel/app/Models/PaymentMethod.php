@@ -84,6 +84,7 @@ class PaymentMethod extends Model
         if ($locale === 'ar' && $this->name_ar) {
             return $this->name_ar;
         }
+
         return $this->name;
     }
 
@@ -95,6 +96,7 @@ class PaymentMethod extends Model
         if ($locale === 'ar' && $this->description_ar) {
             return $this->description_ar;
         }
+
         return $this->description;
     }
 }

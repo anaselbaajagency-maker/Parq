@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
+use App\Exceptions\InsufficientBalanceException;
+use App\Exceptions\InvalidCouponException;
+use App\Models\Coupon;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
-use App\Models\Coupon;
-use App\Exceptions\InsufficientBalanceException;
-use App\Exceptions\InvalidCouponException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class WalletService
 {
@@ -99,7 +99,7 @@ class WalletService
 
     /**
      * Deduct amount from user's wallet.
-     * 
+     *
      * @throws InsufficientBalanceException
      */
     public function deduct(
@@ -119,7 +119,7 @@ class WalletService
             // Lock the wallet row for update
             $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
 
-            if (!$wallet->hasEnoughBalance($amount)) {
+            if (! $wallet->hasEnoughBalance($amount)) {
                 throw new InsufficientBalanceException(
                     "Solde insuffisant. Requis: {$amount}, Disponible: {$wallet->balance}"
                 );
@@ -153,6 +153,7 @@ class WalletService
     public function getFormattedBalance(User $user): string
     {
         $wallet = $this->getOrCreateWallet($user);
+
         return $wallet->formatted_balance;
     }
 
@@ -163,7 +164,7 @@ class WalletService
     {
         $wallet = $user->wallet;
 
-        if (!$wallet) {
+        if (! $wallet) {
             return collect();
         }
 
@@ -181,7 +182,7 @@ class WalletService
     {
         $wallet = $user->wallet;
 
-        if (!$wallet) {
+        if (! $wallet) {
             return collect();
         }
 
@@ -201,18 +202,18 @@ class WalletService
 
     /**
      * Redeem a coupon code.
-     * 
+     *
      * @throws InvalidCouponException
      */
     public function redeemCoupon(User $user, string $code): WalletTransaction
     {
         $coupon = Coupon::findByCode($code);
 
-        if (!$coupon) {
+        if (! $coupon) {
             throw new InvalidCouponException('Code coupon invalide');
         }
 
-        if (!$coupon->isValid()) {
+        if (! $coupon->isValid()) {
             if ($coupon->isExpired()) {
                 throw new InvalidCouponException('Ce coupon a expiré');
             }
@@ -222,7 +223,7 @@ class WalletService
             throw new InvalidCouponException('Ce coupon n\'est plus valide');
         }
 
-        if (!$coupon->canBeUsedBy($user)) {
+        if (! $coupon->canBeUsedBy($user)) {
             throw new InvalidCouponException('Vous avez déjà utilisé ce coupon');
         }
 

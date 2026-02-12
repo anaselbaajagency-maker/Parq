@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\WalletService;
-use App\Services\TopUpService;
 use App\Models\User;
 use App\Notifications\TopUpApprovedNotification;
-use Illuminate\Http\Request;
+use App\Services\TopUpService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\Rule;
+use Illuminate\Http\Request;
 
 class AdminWalletController extends Controller
 {
@@ -20,7 +19,7 @@ class AdminWalletController extends Controller
 
     /**
      * Get all top-up requests with optional filters.
-     * 
+     *
      * GET /api/admin/topups
      */
     public function index(Request $request): JsonResponse
@@ -38,7 +37,7 @@ class AdminWalletController extends Controller
 
     /**
      * Get pending top-up requests.
-     * 
+     *
      * GET /api/admin/topups/pending
      */
     public function pending(): JsonResponse
@@ -55,7 +54,7 @@ class AdminWalletController extends Controller
 
     /**
      * Get a single top-up request.
-     * 
+     *
      * GET /api/admin/topups/{id}
      */
     public function show(int $id): JsonResponse
@@ -70,7 +69,7 @@ class AdminWalletController extends Controller
 
     /**
      * Approve a top-up request.
-     * 
+     *
      * POST /api/admin/topups/{id}/approve
      */
     public function approve(Request $request, int $id): JsonResponse
@@ -112,7 +111,7 @@ class AdminWalletController extends Controller
 
     /**
      * Reject a top-up request.
-     * 
+     *
      * POST /api/admin/topups/{id}/reject
      */
     public function reject(Request $request, int $id): JsonResponse
@@ -149,7 +148,7 @@ class AdminWalletController extends Controller
 
     /**
      * Manual admin credit to user wallet.
-     * 
+     *
      * POST /api/admin/wallets/{userId}/credit
      */
     public function manualCredit(Request $request, int $userId): JsonResponse
@@ -182,7 +181,7 @@ class AdminWalletController extends Controller
 
     /**
      * Get user wallet info (for admin).
-     * 
+     *
      * GET /api/admin/wallets/{userId}
      */
     public function userWallet(int $userId): JsonResponse
@@ -220,7 +219,7 @@ class AdminWalletController extends Controller
 
     /**
      * Get top-up statistics.
-     * 
+     *
      * GET /api/admin/topups/stats
      */
     public function stats(): JsonResponse
@@ -251,7 +250,7 @@ class AdminWalletController extends Controller
             'status_label' => $request->status_label,
             'status_color' => $request->status_color,
             'reference' => $request->payment_reference,
-            'proof_image' => $request->proof_image ? asset('storage/' . $request->proof_image) : null,
+            'proof_image' => $request->proof_image ? asset('storage/'.$request->proof_image) : null,
             'created_at' => $request->created_at->toIso8601String(),
         ];
 

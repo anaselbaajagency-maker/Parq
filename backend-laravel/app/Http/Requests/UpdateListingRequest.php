@@ -13,7 +13,7 @@ class UpdateListingRequest extends FormRequest
     {
         // Check property ownership usually done in Policy, but can be here too.
         // For now return true, Controller will check Policy.
-        return true; 
+        return true;
     }
 
     /**
@@ -23,7 +23,7 @@ class UpdateListingRequest extends FormRequest
     {
         // Mostly similar to Store but often 'sometimes'
         // Complex to change category on update, so strictly specific fields usually just 'nullable'
-        
+
         return [
             'category_id' => 'sometimes|exists:categories,id', // Changing category is risky but allowed
             'city_id' => 'nullable|exists:cities,id',
@@ -36,7 +36,7 @@ class UpdateListingRequest extends FormRequest
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'is_available' => 'boolean',
-            
+
             // Allow category specific fields optionally
             'fuel_type' => 'nullable|string',
             'gearbox' => 'nullable|string',

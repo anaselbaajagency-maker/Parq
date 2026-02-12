@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
-use App\Models\Listing;
 use App\Models\Category;
 use App\Models\City;
+use App\Models\Listing;
+use App\Models\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -79,6 +79,7 @@ class DemoDataSeeder extends Seeder
 
         if ($categories->isEmpty() || $cities->isEmpty()) {
             $this->command->info('No categories or cities found. Please run CategorySeeder and CitySeeder first.');
+
             return;
         }
 
@@ -290,16 +291,17 @@ class DemoDataSeeder extends Seeder
 
         foreach ($demoListings as $categoryListings) {
             $category = Category::where('slug', $categoryListings['category_slug'])->first();
-            
-            if (!$category) {
+
+            if (! $category) {
                 $this->command->warn("Category {$categoryListings['category_slug']} not found, skipping...");
+
                 continue;
             }
 
             foreach ($categoryListings['listings'] as $index => $listingData) {
                 // Rotate through users
                 $user = $createdUsers[$index % count($createdUsers)];
-                
+
                 Listing::updateOrCreate(
                     ['slug' => Str::slug($listingData['title'])],
                     [
@@ -332,7 +334,7 @@ class DemoDataSeeder extends Seeder
             ->update(['show_on_homepage' => true]);
 
         $this->command->info('✅ Demo data seeded successfully!');
-        $this->command->info('   - ' . count($users) . ' users created');
+        $this->command->info('   - '.count($users).' users created');
         $this->command->info('   - Multiple listings created across categories');
     }
 }

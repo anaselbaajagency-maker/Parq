@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\WalletService;
-use App\Services\TopUpService;
 use App\Services\PaymentService;
-use Illuminate\Http\Request;
+use App\Services\TopUpService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class WalletController extends Controller
@@ -20,7 +19,7 @@ class WalletController extends Controller
 
     /**
      * Get current wallet balance.
-     * 
+     *
      * GET /api/wallet/balance
      */
     public function balance(Request $request): JsonResponse
@@ -45,7 +44,7 @@ class WalletController extends Controller
 
     /**
      * Get transaction history.
-     * 
+     *
      * GET /api/wallet/transactions
      */
     public function transactions(Request $request): JsonResponse
@@ -72,7 +71,7 @@ class WalletController extends Controller
             'data' => $transactions->map(function ($tx) {
                 $receiptUrl = null;
                 if ($tx->reference_type === 'App\Models\TopUpRequest' && $tx->reference && $tx->reference->proof_image) {
-                    $receiptUrl = asset('storage/' . $tx->reference->proof_image);
+                    $receiptUrl = asset('storage/'.$tx->reference->proof_image);
                 }
 
                 return [
@@ -94,7 +93,7 @@ class WalletController extends Controller
 
     /**
      * Get available payment methods.
-     * 
+     *
      * GET /api/wallet/payment-methods
      */
     public function paymentMethods(): JsonResponse
@@ -107,13 +106,13 @@ class WalletController extends Controller
 
     /**
      * Initiate a top-up.
-     * 
+     *
      * POST /api/wallet/topup
      */
     public function topup(Request $request): JsonResponse
     {
         $request->validate([
-            'amount' => 'required|integer|min:' . config('wallet.minimum_topup', 50) . '|max:' . config('wallet.maximum_topup', 10000),
+            'amount' => 'required|integer|min:'.config('wallet.minimum_topup', 50).'|max:'.config('wallet.maximum_topup', 10000),
             'method' => ['required', 'string', Rule::in(['bank_transfer', 'cmi', 'payzone', 'cashplus'])],
             'proof_image' => 'nullable|image|max:5120', // 5MB max
         ]);
@@ -174,7 +173,7 @@ class WalletController extends Controller
 
     /**
      * Upload proof for a pending top-up request.
-     * 
+     *
      * POST /api/wallet/topup/{id}/proof
      */
     public function uploadProof(Request $request, int $id): JsonResponse
@@ -197,7 +196,7 @@ class WalletController extends Controller
                 'message' => 'Justificatif téléchargé avec succès',
                 'data' => [
                     'request_id' => $updated->id,
-                    'proof_image' => asset('storage/' . $updated->proof_image),
+                    'proof_image' => asset('storage/'.$updated->proof_image),
                 ],
             ]);
         } catch (\RuntimeException $e) {
@@ -211,7 +210,7 @@ class WalletController extends Controller
 
     /**
      * Get user's top-up requests.
-     * 
+     *
      * GET /api/wallet/topup-requests
      */
     public function topupRequests(Request $request): JsonResponse
@@ -231,7 +230,7 @@ class WalletController extends Controller
                     'status_label' => $req->status_label,
                     'status_color' => $req->status_color,
                     'reference' => $req->payment_reference,
-                    'proof_image' => $req->proof_image ? asset('storage/' . $req->proof_image) : null,
+                    'proof_image' => $req->proof_image ? asset('storage/'.$req->proof_image) : null,
                     'admin_notes' => $req->admin_notes,
                     'created_at' => $req->created_at->toIso8601String(),
                     'approved_at' => $req->approved_at?->toIso8601String(),
@@ -242,7 +241,7 @@ class WalletController extends Controller
 
     /**
      * Cancel a pending top-up request.
-     * 
+     *
      * DELETE /api/wallet/topup-requests/{id}
      */
     public function cancelTopupRequest(Request $request, int $id): JsonResponse
@@ -268,7 +267,7 @@ class WalletController extends Controller
 
     /**
      * Redeem a coupon code.
-     * 
+     *
      * POST /api/wallet/redeem-coupon
      */
     public function redeemCoupon(Request $request): JsonResponse
@@ -301,7 +300,7 @@ class WalletController extends Controller
 
     /**
      * Get wallet summary (for dashboard).
-     * 
+     *
      * GET /api/wallet/summary
      */
     public function summary(Request $request): JsonResponse

@@ -12,28 +12,28 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('categories', function (Blueprint $table) {
-            if (!Schema::hasColumn('categories', 'description')) {
+            if (! Schema::hasColumn('categories', 'description')) {
                 $table->text('description')->nullable()->after('icon');
             }
-            if (!Schema::hasColumn('categories', 'name_fr')) {
+            if (! Schema::hasColumn('categories', 'name_fr')) {
                 $table->string('name_fr')->nullable()->after('name');
             }
-            if (!Schema::hasColumn('categories', 'name_ar')) {
+            if (! Schema::hasColumn('categories', 'name_ar')) {
                 $table->string('name_ar')->nullable()->after('name_fr');
             }
-            if (!Schema::hasColumn('categories', 'description_fr')) {
+            if (! Schema::hasColumn('categories', 'description_fr')) {
                 $table->text('description_fr')->nullable()->after('description');
             }
-            if (!Schema::hasColumn('categories', 'description_ar')) {
+            if (! Schema::hasColumn('categories', 'description_ar')) {
                 $table->text('description_ar')->nullable()->after('description_fr');
             }
         });
 
         Schema::table('cities', function (Blueprint $table) {
-            if (!Schema::hasColumn('cities', 'name_fr')) {
+            if (! Schema::hasColumn('cities', 'name_fr')) {
                 $table->string('name_fr')->nullable()->after('name');
             }
-            if (!Schema::hasColumn('cities', 'name_ar')) {
+            if (! Schema::hasColumn('cities', 'name_ar')) {
                 $table->string('name_ar')->nullable()->after('name_fr');
             }
         });

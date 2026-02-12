@@ -1,9 +1,8 @@
 <?php
 
+use App\Http\Controllers\AuthOTPController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthOTPController;
-
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -22,7 +21,6 @@ Route::prefix('auth/otp')->group(function () {
     Route::post('/send', [AuthOTPController::class, 'sendOTP']);
     Route::post('/verify', [AuthOTPController::class, 'verifyOTP']);
 });
-
 
 Route::post('listings/{id}/favorite', [\App\Http\Controllers\Api\ListingController::class, 'toggleFavorite'])->middleware('auth:sanctum');
 Route::apiResource('listings', \App\Http\Controllers\Api\ListingController::class);
@@ -61,7 +59,7 @@ Route::prefix('wallet')->middleware('auth:sanctum')->group(function () {
     Route::get('transactions', [\App\Http\Controllers\WalletController::class, 'transactions']);
     Route::get('payment-methods', [\App\Http\Controllers\WalletController::class, 'paymentMethods']);
     Route::get('topup-requests', [\App\Http\Controllers\WalletController::class, 'topupRequests']);
-    
+
     Route::post('topup', [\App\Http\Controllers\WalletController::class, 'topup']);
     Route::post('topup/{id}/proof', [\App\Http\Controllers\WalletController::class, 'uploadProof']);
     Route::delete('topup-requests/{id}', [\App\Http\Controllers\WalletController::class, 'cancelTopupRequest']);
@@ -105,7 +103,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     // =============================================
     // ADMIN WALLET & TOP-UP MANAGEMENT
     // =============================================
-    
+
     // Top-up requests management
     Route::get('topups', [\App\Http\Controllers\Admin\AdminWalletController::class, 'index']);
     Route::get('topups/pending', [\App\Http\Controllers\Admin\AdminWalletController::class, 'pending']);
@@ -113,11 +111,11 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::get('topups/{id}', [\App\Http\Controllers\Admin\AdminWalletController::class, 'show']);
     Route::post('topups/{id}/approve', [\App\Http\Controllers\Admin\AdminWalletController::class, 'approve']);
     Route::post('topups/{id}/reject', [\App\Http\Controllers\Admin\AdminWalletController::class, 'reject']);
-    
+
     // Wallet management
     Route::get('wallets/{userId}', [\App\Http\Controllers\Admin\AdminWalletController::class, 'userWallet']);
     Route::post('wallets/{userId}/credit', [\App\Http\Controllers\Admin\AdminWalletController::class, 'manualCredit']);
-    
+
     // Coupon management
     Route::get('coupons', [\App\Http\Controllers\Admin\AdminCouponController::class, 'index']);
     Route::post('coupons', [\App\Http\Controllers\Admin\AdminCouponController::class, 'store']);
@@ -125,10 +123,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::put('coupons/{id}', [\App\Http\Controllers\Admin\AdminCouponController::class, 'update']);
     Route::delete('coupons/{id}', [\App\Http\Controllers\Admin\AdminCouponController::class, 'destroy']);
     Route::post('coupons/{id}/toggle', [\App\Http\Controllers\Admin\AdminCouponController::class, 'toggle']);
-    
+
     // Payment Methods
     Route::get('payment-methods', [\App\Http\Controllers\Admin\AdminPaymentMethodController::class, 'index']);
     Route::put('payment-methods/{id}', [\App\Http\Controllers\Admin\AdminPaymentMethodController::class, 'update']);
     Route::post('payment-methods/{id}/toggle', [\App\Http\Controllers\Admin\AdminPaymentMethodController::class, 'toggle']);
 });
-

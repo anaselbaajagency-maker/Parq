@@ -14,6 +14,7 @@ class CityController extends Controller
         if ($request->has('active') && $request->active == '1') {
             return \App\Models\City::where('is_active', true)->get();
         }
+
         return \App\Models\City::all();
     }
 
@@ -26,7 +27,7 @@ class CityController extends Controller
             'slug' => 'required|string|unique:cities,slug',
             'region' => 'nullable|string',
             'country' => 'nullable|string',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
         ]);
 
         return \App\Models\City::create($validated);
@@ -46,18 +47,19 @@ class CityController extends Controller
     public function update(Request $request, $id)
     {
         $city = \App\Models\City::findOrFail($id);
-        
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'name_fr' => 'nullable|string|max:255',
             'name_ar' => 'nullable|string|max:255',
-            'slug' => 'sometimes|string|unique:cities,slug,' . $id,
+            'slug' => 'sometimes|string|unique:cities,slug,'.$id,
             'region' => 'nullable|string',
             'country' => 'nullable|string',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
         ]);
 
         $city->update($validated);
+
         return $city;
     }
 
@@ -68,6 +70,7 @@ class CityController extends Controller
     {
         $city = \App\Models\City::findOrFail($id);
         $city->delete();
+
         return response()->noContent();
     }
 }

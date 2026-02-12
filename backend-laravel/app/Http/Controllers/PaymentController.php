@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\PaymentService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
@@ -15,7 +15,7 @@ class PaymentController extends Controller
 
     /**
      * Handle payment success callback (redirect from gateway).
-     * 
+     *
      * GET /api/payments/callback/{method}/success
      */
     public function callbackSuccess(Request $request, string $method): JsonResponse
@@ -42,7 +42,7 @@ class PaymentController extends Controller
             ], 400);
 
         } catch (\Exception $e) {
-            Log::error("Payment callback error: " . $e->getMessage(), [
+            Log::error('Payment callback error: '.$e->getMessage(), [
                 'method' => $method,
                 'data' => $request->all(),
             ]);
@@ -56,7 +56,7 @@ class PaymentController extends Controller
 
     /**
      * Handle payment failure callback.
-     * 
+     *
      * GET /api/payments/callback/{method}/fail
      */
     public function callbackFail(Request $request, string $method): JsonResponse
@@ -75,7 +75,7 @@ class PaymentController extends Controller
 
     /**
      * Handle payment gateway webhook.
-     * 
+     *
      * POST /api/payments/webhook/{method}
      */
     public function webhook(Request $request, string $method): JsonResponse
@@ -88,15 +88,16 @@ class PaymentController extends Controller
         // Validate webhook signature
         $signature = $request->header('X-Signature', $request->input('hash', ''));
 
-        if (!$this->paymentService->validateWebhook($method, $request->all(), $signature)) {
+        if (! $this->paymentService->validateWebhook($method, $request->all(), $signature)) {
             Log::warning("Invalid webhook signature for {$method}");
+
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
         try {
             $topUpRequest = $this->paymentService->handleCallback($method, $request->all());
 
-            Log::info("Webhook processed successfully", [
+            Log::info('Webhook processed successfully', [
                 'request_id' => $topUpRequest->id,
                 'status' => $topUpRequest->status,
             ]);
@@ -104,7 +105,7 @@ class PaymentController extends Controller
             return response()->json(['success' => true]);
 
         } catch (\Exception $e) {
-            Log::error("Webhook processing error: " . $e->getMessage(), [
+            Log::error('Webhook processing error: '.$e->getMessage(), [
                 'method' => $method,
                 'exception' => $e,
             ]);
@@ -115,7 +116,7 @@ class PaymentController extends Controller
 
     /**
      * Check payment status.
-     * 
+     *
      * GET /api/payments/status/{reference}
      */
     public function status(Request $request, string $reference): JsonResponse
@@ -126,7 +127,7 @@ class PaymentController extends Controller
             ->where('payment_reference', $reference)
             ->first();
 
-        if (!$topUpRequest) {
+        if (! $topUpRequest) {
             return response()->json([
                 'success' => false,
                 'error' => 'not_found',

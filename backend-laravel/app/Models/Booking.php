@@ -3,12 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Listing;
-use App\Models\User;
 
 class Booking extends Model
 {
     protected $fillable = ['listing_id', 'user_id', 'provider_id', 'start_date', 'end_date', 'total_price', 'status'];
+
     protected $casts = ['start_date' => 'datetime', 'end_date' => 'datetime'];
 
     public function listing()

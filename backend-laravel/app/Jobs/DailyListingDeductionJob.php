@@ -2,16 +2,16 @@
 
 namespace App\Jobs;
 
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use App\Models\Listing;
-use App\Services\WalletService;
 use App\Exceptions\InsufficientBalanceException;
+use App\Models\Listing;
 use App\Notifications\ListingHiddenNotification;
 use App\Notifications\LowBalanceNotification;
+use App\Services\WalletService;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 class DailyListingDeductionJob implements ShouldQueue
@@ -119,7 +119,7 @@ class DailyListingDeductionJob implements ShouldQueue
             return ['success' => false, 'amount' => 0];
 
         } catch (\Exception $e) {
-            Log::error("Error processing listing {$listing->id}: " . $e->getMessage(), [
+            Log::error("Error processing listing {$listing->id}: ".$e->getMessage(), [
                 'exception' => $e,
             ]);
 
@@ -135,7 +135,7 @@ class DailyListingDeductionJob implements ShouldQueue
         try {
             $listing->user->notify(new ListingHiddenNotification($listing));
         } catch (\Exception $e) {
-            Log::error("Failed to send listing hidden notification: " . $e->getMessage());
+            Log::error('Failed to send listing hidden notification: '.$e->getMessage());
         }
     }
 
@@ -151,7 +151,7 @@ class DailyListingDeductionJob implements ShouldQueue
             try {
                 $user->notify(new LowBalanceNotification($balance));
             } catch (\Exception $e) {
-                Log::error("Failed to send low balance notification: " . $e->getMessage());
+                Log::error('Failed to send low balance notification: '.$e->getMessage());
             }
         }
     }
@@ -161,7 +161,7 @@ class DailyListingDeductionJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error('Daily listing deduction job failed: ' . $exception->getMessage(), [
+        Log::error('Daily listing deduction job failed: '.$exception->getMessage(), [
             'exception' => $exception,
         ]);
     }

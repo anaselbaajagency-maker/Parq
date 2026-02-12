@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('listing_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->timestamps();
-            
+
             // Index for faster queries
             $table->index(['listing_id', 'created_at']);
         });

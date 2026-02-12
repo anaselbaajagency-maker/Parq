@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         // Cars / Véhicules légers
-        if (!Schema::hasTable('listing_cars')) {
+        if (! Schema::hasTable('listing_cars')) {
             Schema::create('listing_cars', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('listing_id')->constrained()->cascadeOnDelete();
@@ -24,7 +24,7 @@ return new class extends Migration
         }
 
         // Heavy Machinery / Engins
-        if (!Schema::hasTable('listing_machineries')) {
+        if (! Schema::hasTable('listing_machineries')) {
             Schema::create('listing_machineries', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('listing_id')->constrained()->cascadeOnDelete();
@@ -40,7 +40,7 @@ return new class extends Migration
         }
 
         // Transport / Camions / Bus
-        if (!Schema::hasTable('listing_transports')) {
+        if (! Schema::hasTable('listing_transports')) {
             Schema::create('listing_transports', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('listing_id')->constrained()->cascadeOnDelete();
@@ -52,7 +52,7 @@ return new class extends Migration
         }
 
         // Drivers / Chauffeurs
-        if (!Schema::hasTable('listing_drivers')) {
+        if (! Schema::hasTable('listing_drivers')) {
             Schema::create('listing_drivers', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('listing_id')->constrained()->cascadeOnDelete();

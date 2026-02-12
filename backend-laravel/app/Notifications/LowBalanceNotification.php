@@ -38,8 +38,8 @@ class LowBalanceNotification extends Notification implements ShouldQueue
     {
         return (new MailMessage)
             ->subject('Solde faible - Rechargez votre portefeuille')
-            ->greeting('Bonjour ' . $notifiable->full_name . ',')
-            ->line('Votre solde SOLD DIRHAM est actuellement de ' . $this->balance . ' crédits.')
+            ->greeting('Bonjour '.$notifiable->full_name.',')
+            ->line('Votre solde SOLD DIRHAM est actuellement de '.$this->balance.' crédits.')
             ->line('Si votre solde atteint 0, vos annonces actives seront automatiquement masquées.')
             ->action('Recharger maintenant', url('/wallet/topup'))
             ->line('Rechargez dès maintenant pour maintenir la visibilité de vos annonces.');
@@ -55,7 +55,7 @@ class LowBalanceNotification extends Notification implements ShouldQueue
         return [
             'type' => 'low_balance',
             'balance' => $this->balance,
-            'message' => 'Votre solde est faible: ' . $this->balance . ' SOLD DIRHAM.',
+            'message' => 'Votre solde est faible: '.$this->balance.' SOLD DIRHAM.',
             'action_url' => '/wallet/topup',
             'action_label' => 'Recharger',
         ];

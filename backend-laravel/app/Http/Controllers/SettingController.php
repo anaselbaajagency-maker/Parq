@@ -12,6 +12,7 @@ class SettingController extends Controller
     public function index()
     {
         $settings = \App\Models\Setting::all();
+
         // Return key-value pair object (e.g., { "site_name": "Parq" })
         return $settings->pluck('value', 'key');
     }
@@ -38,7 +39,7 @@ class SettingController extends Controller
     public function bulkUpdate(Request $request)
     {
         $data = $request->validate([
-            '*' => 'nullable|string' // Accepts any key with string value
+            '*' => 'nullable|string', // Accepts any key with string value
         ]);
 
         foreach ($data as $key => $value) {

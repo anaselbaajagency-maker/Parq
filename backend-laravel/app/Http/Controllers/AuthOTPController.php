@@ -3,17 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class AuthOTPController extends Controller
 {
     /**
      * Send OTP to the given phone number.
-     * 
+     *
      * POST /api/auth/otp/send
      */
     public function sendOTP(Request $request)
@@ -48,7 +47,7 @@ class AuthOTPController extends Controller
 
     /**
      * Verify OTP and login/register user.
-     * 
+     *
      * POST /api/auth/otp/verify
      */
     public function verifyOTP(Request $request)
@@ -66,7 +65,7 @@ class AuthOTPController extends Controller
             ->orderBy('created_at', 'desc')
             ->first();
 
-        if (!$otp) {
+        if (! $otp) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired OTP',
@@ -79,13 +78,13 @@ class AuthOTPController extends Controller
         // Find or create user
         $user = User::where('phone', $request->phone)->first();
 
-        if (!$user) {
+        if (! $user) {
             // Create user with a dummy email if needed (Laravel users usually need email)
             // Or use phone as the unique identifier if the system supports it.
             // For now, let's create a placeholder email to satisfy constraints.
             $user = User::create([
-                'full_name' => 'User ' . substr($request->phone, -4),
-                'email' => $request->phone . '@parq.ma',
+                'full_name' => 'User '.substr($request->phone, -4),
+                'email' => $request->phone.'@parq.ma',
                 'phone' => $request->phone,
                 'role' => 'user',
                 'password' => null, // No password for OTP users

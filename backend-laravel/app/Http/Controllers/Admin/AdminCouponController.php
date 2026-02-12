@@ -4,15 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class AdminCouponController extends Controller
 {
     /**
      * Get all coupons.
-     * 
+     *
      * GET /api/admin/coupons
      */
     public function index(Request $request): JsonResponse
@@ -39,7 +39,7 @@ class AdminCouponController extends Controller
 
     /**
      * Create a new coupon.
-     * 
+     *
      * POST /api/admin/coupons
      */
     public function store(Request $request): JsonResponse
@@ -70,7 +70,7 @@ class AdminCouponController extends Controller
 
     /**
      * Get a single coupon.
-     * 
+     *
      * GET /api/admin/coupons/{id}
      */
     public function show(int $id): JsonResponse
@@ -95,7 +95,7 @@ class AdminCouponController extends Controller
 
     /**
      * Update a coupon.
-     * 
+     *
      * PUT /api/admin/coupons/{id}
      */
     public function update(Request $request, int $id): JsonResponse
@@ -129,7 +129,7 @@ class AdminCouponController extends Controller
 
     /**
      * Delete a coupon.
-     * 
+     *
      * DELETE /api/admin/coupons/{id}
      */
     public function destroy(int $id): JsonResponse
@@ -155,13 +155,13 @@ class AdminCouponController extends Controller
 
     /**
      * Toggle coupon active status.
-     * 
+     *
      * POST /api/admin/coupons/{id}/toggle
      */
     public function toggle(int $id): JsonResponse
     {
         $coupon = Coupon::findOrFail($id);
-        $coupon->update(['is_active' => !$coupon->is_active]);
+        $coupon->update(['is_active' => ! $coupon->is_active]);
 
         return response()->json([
             'success' => true,

@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class Listing extends Model
 {
     protected $fillable = [
-        'user_id', 
-        'category_id', 
-        'city_id', 
+        'user_id',
+        'category_id',
+        'city_id',
         'title',
         'title_fr',
         'title_ar',
@@ -17,42 +17,42 @@ class Listing extends Model
         'description',
         'description_fr',
         'description_ar',
-        'price', 
+        'price',
         'price_unit',
         'price_type',
         'latitude',
         'longitude',
         // 'images', // Deprecated JSON column
         'image_hero',
-        'is_available', 
-        'status', 
+        'is_available',
+        'status',
         'attributes', // Keep for flexible attributes if needed
         'views',
         'daily_cost',
         'is_featured',
-        'published_at'
+        'published_at',
     ];
 
     protected $casts = [
         'images' => 'array', // Keep for backward compatibility if data exists
-        'attributes' => 'array', 
+        'attributes' => 'array',
         'is_available' => 'boolean',
         'is_featured' => 'boolean',
         'daily_cost' => 'decimal:2',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
-        'published_at' => 'datetime'
+        'published_at' => 'datetime',
     ];
-    
+
     protected $appends = [
-        'main_image', 
+        'main_image',
         'is_favorited',
         'brand',
         'model',
         'year',
         'fuel',
         'power',
-        'condition'
+        'condition',
     ];
 
     public function getMainImageAttribute()
@@ -61,9 +61,10 @@ class Listing extends Model
         if ($mainImage) {
             return $mainImage->image_path;
         }
-        
+
         // Fallback to first image
         $firstImage = $this->images()->orderBy('sort_order')->first();
+
         return $firstImage ? $firstImage->image_path : null;
     }
 
@@ -130,9 +131,10 @@ class Listing extends Model
 
     public function getIsFavoritedAttribute()
     {
-        if (!auth('sanctum')->check()) {
+        if (! auth('sanctum')->check()) {
             return false;
         }
+
         return $this->favoritedByUsers()->where('user_id', auth('sanctum')->id())->exists();
     }
 
@@ -142,7 +144,7 @@ class Listing extends Model
     }
 
     // Accessors for flattened attributes (Fiche Technique)
-    
+
     public function getBrandAttribute()
     {
         return $this->machinery?->brand;

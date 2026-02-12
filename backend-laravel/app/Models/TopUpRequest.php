@@ -9,14 +9,20 @@ class TopUpRequest extends Model
 {
     // Status constants
     const STATUS_PENDING = 'pending';
+
     const STATUS_APPROVED = 'approved';
+
     const STATUS_REJECTED = 'rejected';
+
     const STATUS_PROCESSING = 'processing';
 
     // Method constants
     const METHOD_BANK_TRANSFER = 'bank_transfer';
+
     const METHOD_CMI = 'cmi';
+
     const METHOD_PAYZONE = 'payzone';
+
     const METHOD_CASHPLUS = 'cashplus';
 
     protected $table = 'topup_requests';

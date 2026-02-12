@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Carbon\Carbon;
 
 class Coupon extends Model
 {
@@ -41,9 +40,10 @@ class Coupon extends Model
      */
     public function isExpired(): bool
     {
-        if (!$this->expires_at) {
+        if (! $this->expires_at) {
             return false;
         }
+
         return $this->expires_at->isPast();
     }
 
@@ -60,7 +60,7 @@ class Coupon extends Model
      */
     public function isValid(): bool
     {
-        return $this->is_active && !$this->isExpired() && !$this->hasReachedLimit();
+        return $this->is_active && ! $this->isExpired() && ! $this->hasReachedLimit();
     }
 
     /**
@@ -68,12 +68,12 @@ class Coupon extends Model
      */
     public function canBeUsedBy(User $user): bool
     {
-        if (!$this->isValid()) {
+        if (! $this->isValid()) {
             return false;
         }
 
         // Check if user has already used this coupon
-        return !$this->users()->where('user_id', $user->id)->exists();
+        return ! $this->users()->where('user_id', $user->id)->exists();
     }
 
     /**

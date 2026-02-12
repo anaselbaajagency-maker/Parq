@@ -3,10 +3,8 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Tests\TestCase;
 
 class AuthOtpTest extends TestCase
 {
@@ -16,14 +14,14 @@ class AuthOtpTest extends TestCase
     public function it_can_send_an_otp()
     {
         $response = $this->postJson('/api/auth/otp/send', [
-            'phone' => '0612345678'
+            'phone' => '0612345678',
         ]);
 
         $response->assertStatus(200)
-                 ->assertJson(['success' => true]);
+            ->assertJson(['success' => true]);
 
         $this->assertDatabaseHas('otps', [
-            'phone' => '0612345678'
+            'phone' => '0612345678',
         ]);
     }
 
@@ -37,15 +35,15 @@ class AuthOtpTest extends TestCase
         // 2. Verify OTP
         $response = $this->postJson('/api/auth/otp/verify', [
             'phone' => '0612345678',
-            'code' => $otp->code
+            'code' => $otp->code,
         ]);
 
         $response->assertStatus(200)
-                 ->assertJsonStructure([
-                     'success',
-                     'user' => ['id', 'phone', 'full_name'],
-                     'token'
-                 ]);
+            ->assertJsonStructure([
+                'success',
+                'user' => ['id', 'phone', 'full_name'],
+                'token',
+            ]);
 
         $this->assertDatabaseHas('users', ['phone' => '0612345678']);
     }
@@ -57,10 +55,10 @@ class AuthOtpTest extends TestCase
 
         $response = $this->postJson('/api/auth/otp/verify', [
             'phone' => '0612345678',
-            'code' => '000000' // Wrong code
+            'code' => '000000', // Wrong code
         ]);
 
         $response->assertStatus(422)
-                 ->assertJson(['success' => false]);
+            ->assertJson(['success' => false]);
     }
 }

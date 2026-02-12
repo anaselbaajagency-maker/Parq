@@ -39,8 +39,8 @@ class ListingHiddenNotification extends Notification implements ShouldQueue
     {
         return (new MailMessage)
             ->subject('Votre annonce a été masquée - Solde insuffisant')
-            ->greeting('Bonjour ' . $notifiable->full_name . ',')
-            ->line('Votre annonce "' . $this->listing->title . '" a été automatiquement masquée car votre solde de SOLD DIRHAM est insuffisant.')
+            ->greeting('Bonjour '.$notifiable->full_name.',')
+            ->line('Votre annonce "'.$this->listing->title.'" a été automatiquement masquée car votre solde de SOLD DIRHAM est insuffisant.')
             ->line('Pour réactiver votre annonce, veuillez recharger votre portefeuille.')
             ->action('Recharger maintenant', url('/wallet/topup'))
             ->line('Si vous avez des questions, n\'hésitez pas à nous contacter.');
@@ -57,7 +57,7 @@ class ListingHiddenNotification extends Notification implements ShouldQueue
             'type' => 'listing_hidden',
             'listing_id' => $this->listing->id,
             'listing_title' => $this->listing->title,
-            'message' => 'Votre annonce "' . $this->listing->title . '" a été masquée pour solde insuffisant.',
+            'message' => 'Votre annonce "'.$this->listing->title.'" a été masquée pour solde insuffisant.',
             'action_url' => '/wallet/topup',
             'action_label' => 'Recharger',
         ];

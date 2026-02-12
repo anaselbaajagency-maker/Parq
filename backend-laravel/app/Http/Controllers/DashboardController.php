@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Listing;
 use App\Models\Booking;
+use App\Models\Listing;
 use App\Models\Message;
 use App\Models\Wallet;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -18,14 +18,14 @@ class DashboardController extends Controller
         $totalUsers = \App\Models\User::count();
         $totalListings = Listing::count();
         $pendingApprovals = Listing::where('status', 'pending')->count();
-        
+
         // Calculate total revenue (sum of all wallet deductions or transactions)
         // For now, mocking or summing transaction amounts if a Transaction model exists
         // Assuming we have verify_transactions table or similar mechanism
         // Or if 'Wallet' balance is what we track.
         // Let's use a placeholder or sum valid transactions if possible.
-        $totalRevenue = 0; 
-        
+        $totalRevenue = 0;
+
         return response()->json([
             'total_users' => $totalUsers,
             'total_listings' => $totalListings,
@@ -55,7 +55,7 @@ class DashboardController extends Controller
 
         // Calculate Views Trend (Last 7 days vs Previous 7 days)
         $userListingIds = Listing::where('user_id', $userId)->pluck('id');
-        
+
         $viewsLast7Days = \App\Models\ListingView::whereIn('listing_id', $userListingIds)
             ->where('created_at', '>=', Carbon::now()->subDays(7))
             ->count();
@@ -68,7 +68,7 @@ class DashboardController extends Controller
         if ($viewsPrevious7Days > 0) {
             $percentChange = (($viewsLast7Days - $viewsPrevious7Days) / $viewsPrevious7Days) * 100;
             $sign = $percentChange >= 0 ? '+' : '';
-            $viewsTrend = $sign . round($percentChange, 1) . '%';
+            $viewsTrend = $sign.round($percentChange, 1).'%';
         } elseif ($viewsLast7Days > 0) {
             $viewsTrend = '+100%';
         }
@@ -77,16 +77,16 @@ class DashboardController extends Controller
         $newMessagesCount = Message::where('receiver_id', $userId)
             ->where('created_at', '>=', Carbon::now()->subDays(7))
             ->count();
-        $messagesTrend = $newMessagesCount . ' new this week';
+        $messagesTrend = $newMessagesCount.' new this week';
 
         return response()->json([
             'active_listings' => $activeListings,
-            'total_views' => (int)$totalViews,
+            'total_views' => (int) $totalViews,
             'messages' => $unreadMessages,
-            'balance' => (float)$balance,
+            'balance' => (float) $balance,
             'listings_trend' => '+0', // Keep as mock for now or implement similar logic
             'views_trend' => $viewsTrend,
-            'messages_trend' => $messagesTrend
+            'messages_trend' => $messagesTrend,
         ]);
     }
 
@@ -102,10 +102,10 @@ class DashboardController extends Controller
             ->get()
             ->map(function ($booking) {
                 return [
-                    'id' => 'booking_' . $booking->id,
-                    'title' => 'Nouveau booking pour ' . ($booking->listing->title ?? 'votre annonce'),
+                    'id' => 'booking_'.$booking->id,
+                    'title' => 'Nouveau booking pour '.($booking->listing->title ?? 'votre annonce'),
                     'time' => $booking->created_at->diffForHumans(),
-                    'type' => 'booking'
+                    'type' => 'booking',
                 ];
             });
 
@@ -115,10 +115,10 @@ class DashboardController extends Controller
             ->get()
             ->map(function ($message) {
                 return [
-                    'id' => 'msg_' . $message->id,
+                    'id' => 'msg_'.$message->id,
                     'title' => 'Nouveau message reçu',
                     'time' => $message->created_at->diffForHumans(),
-                    'type' => 'message'
+                    'type' => 'message',
                 ];
             });
 
@@ -156,15 +156,17 @@ class DashboardController extends Controller
             $date = Carbon::now()->subDays($i);
             $dateString = $date->format('Y-m-d');
             $count = $viewsData->get($dateString, 0);
-            
-            if ($count > $maxViews) $maxViews = $count;
+
+            if ($count > $maxViews) {
+                $maxViews = $count;
+            }
 
             $days[] = [
                 'day' => $date->format('D'), // Mon, Tue...
                 'full_date' => $dateString,
                 'views' => $count,
                 // We'll update percentage after the loop or set 0 if max is 0
-                'percentage' => 0 
+                'percentage' => 0,
             ];
         }
 
@@ -177,7 +179,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'period' => 'Last 7 days',
-            'data' => $days
+            'data' => $days,
         ]);
     }
 }

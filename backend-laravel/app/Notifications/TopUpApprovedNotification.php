@@ -38,11 +38,11 @@ class TopUpApprovedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Recharge approuvée - ' . $this->topUpRequest->amount . ' SOLD DIRHAM')
-            ->greeting('Bonjour ' . $notifiable->full_name . ',')
+            ->subject('Recharge approuvée - '.$this->topUpRequest->amount.' SOLD DIRHAM')
+            ->greeting('Bonjour '.$notifiable->full_name.',')
             ->line('Votre demande de recharge a été approuvée!')
-            ->line('Montant crédité: ' . $this->topUpRequest->amount . ' SOLD DIRHAM')
-            ->line('Méthode: ' . $this->topUpRequest->method_label)
+            ->line('Montant crédité: '.$this->topUpRequest->amount.' SOLD DIRHAM')
+            ->line('Méthode: '.$this->topUpRequest->method_label)
             ->action('Voir mon portefeuille', url('/wallet'))
             ->line('Merci de votre confiance!');
     }
@@ -58,7 +58,7 @@ class TopUpApprovedNotification extends Notification implements ShouldQueue
             'type' => 'topup_approved',
             'amount' => $this->topUpRequest->amount,
             'method' => $this->topUpRequest->method,
-            'message' => 'Recharge de ' . $this->topUpRequest->amount . ' SOLD DIRHAM approuvée.',
+            'message' => 'Recharge de '.$this->topUpRequest->amount.' SOLD DIRHAM approuvée.',
             'action_url' => '/wallet',
             'action_label' => 'Voir portefeuille',
         ];

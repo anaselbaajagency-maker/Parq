@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\TopUpRequest;
 use App\Models\PaymentMethod;
+use App\Models\TopUpRequest;
+use App\Models\User;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -59,7 +59,7 @@ class PaymentService
 
         // Get payment method
         $paymentMethod = PaymentMethod::findByCode($method);
-        if (!$paymentMethod || !$paymentMethod->is_active) {
+        if (! $paymentMethod || ! $paymentMethod->is_active) {
             throw new \InvalidArgumentException('Méthode de paiement non disponible');
         }
 
@@ -109,7 +109,7 @@ class PaymentService
     {
         $config = config('wallet.payment_gateways.cmi');
 
-        if (!$config['enabled']) {
+        if (! $config['enabled']) {
             throw new \RuntimeException('Le paiement par carte n\'est pas disponible actuellement');
         }
 
@@ -171,13 +171,13 @@ class PaymentService
      */
     protected function generateCmiHash(array $params, string $storeKey): string
     {
-        $hashString = $params['clientid'] . '|' .
-            $params['oid'] . '|' .
-            $params['amount'] . '|' .
-            $params['okUrl'] . '|' .
-            $params['failUrl'] . '|' .
-            $params['TranType'] . '|' .
-            $params['rnd'] . '|' .
+        $hashString = $params['clientid'].'|'.
+            $params['oid'].'|'.
+            $params['amount'].'|'.
+            $params['okUrl'].'|'.
+            $params['failUrl'].'|'.
+            $params['TranType'].'|'.
+            $params['rnd'].'|'.
             $storeKey;
 
         return base64_encode(hash('sha512', $hashString, true));
@@ -190,7 +190,7 @@ class PaymentService
     {
         $config = config('wallet.payment_gateways.payzone');
 
-        if (!$config['enabled']) {
+        if (! $config['enabled']) {
             throw new \RuntimeException('Payzone n\'est pas disponible actuellement');
         }
 
@@ -210,7 +210,7 @@ class PaymentService
             'type' => 'redirect',
             'request_id' => $request->id,
             'reference' => $request->payment_reference,
-            'gateway_url' => $config['api_url'] . '/checkout',
+            'gateway_url' => $config['api_url'].'/checkout',
             'message' => 'Redirection vers Payzone...',
         ];
     }
@@ -222,7 +222,7 @@ class PaymentService
     {
         $config = config('wallet.payment_gateways.cashplus');
 
-        if (!$config['enabled']) {
+        if (! $config['enabled']) {
             throw new \RuntimeException('Cash Plus n\'est pas disponible actuellement');
         }
 
@@ -257,7 +257,7 @@ class PaymentService
      */
     protected function generateReference(string $prefix = 'REF'): string
     {
-        return $prefix . '-' . strtoupper(Str::random(8)) . '-' . time();
+        return $prefix.'-'.strtoupper(Str::random(8)).'-'.time();
     }
 
     /**
@@ -300,7 +300,7 @@ class PaymentService
         // Payment failed
         $request->update([
             'status' => TopUpRequest::STATUS_REJECTED,
-            'admin_notes' => 'Paiement refusé par la banque: ' . ($data['ErrMsg'] ?? 'Unknown error'),
+            'admin_notes' => 'Paiement refusé par la banque: '.($data['ErrMsg'] ?? 'Unknown error'),
             'metadata' => array_merge($request->metadata ?? [], ['gateway_response' => $data]),
         ]);
 
@@ -385,6 +385,7 @@ class PaymentService
     {
         $storeKey = config('wallet.payment_gateways.cmi.store_key');
         $expectedHash = $this->generateCmiHash($data, $storeKey);
+
         return hash_equals($expectedHash, $signature);
     }
 
@@ -395,6 +396,7 @@ class PaymentService
     {
         $apiKey = config('wallet.payment_gateways.payzone.api_key');
         $expectedSignature = hash_hmac('sha256', json_encode($data), $apiKey);
+
         return hash_equals($expectedSignature, $signature);
     }
 }

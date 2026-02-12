@@ -24,11 +24,11 @@ return new class extends Migration
         // We cannot easily revert back to enum without risking data loss if non-enum values exist.
         // But for strict rollback:
         Schema::table('categories', function (Blueprint $table) {
-             // $table->enum('type', ['rent', 'buy'])->default('rent')->change();
-             // Keeping it as string on rollback is safer to avoid errors, 
-             // or we can allow it strictly if we are sure.
-             // For now, let's just make it string in down as well to avoid breaking.
-             $table->string('type')->change();
+            // $table->enum('type', ['rent', 'buy'])->default('rent')->change();
+            // Keeping it as string on rollback is safer to avoid errors,
+            // or we can allow it strictly if we are sure.
+            // For now, let's just make it string in down as well to avoid breaking.
+            $table->string('type')->change();
         });
     }
 };

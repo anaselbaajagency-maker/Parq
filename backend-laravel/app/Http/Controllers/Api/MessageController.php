@@ -7,7 +7,6 @@ use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class MessageController extends Controller
 {
@@ -27,10 +26,10 @@ class MessageController extends Controller
             ->with(['sender', 'receiver'])
             ->orderBy('created_at', 'desc')
             ->get()
-            ->groupBy(function($message) use ($userId) {
+            ->groupBy(function ($message) use ($userId) {
                 return $message->sender_id == $userId ? $message->receiver_id : $message->sender_id;
             })
-            ->map(function($messages) use ($userId) {
+            ->map(function ($messages) use ($userId) {
                 $lastMessage = $messages->first(); // Since we ordered by desc
                 $otherUser = $lastMessage->sender_id == $userId ? $lastMessage->receiver : $lastMessage->sender;
                 $unreadCount = $messages->where('receiver_id', $userId)->whereNull('read_at')->count();
@@ -38,7 +37,7 @@ class MessageController extends Controller
                 return [
                     'user' => $otherUser,
                     'last_message' => $lastMessage,
-                    'unread_count' => $unreadCount
+                    'unread_count' => $unreadCount,
                 ];
             })
             ->values();
@@ -52,17 +51,17 @@ class MessageController extends Controller
     public function show($otherUserId)
     {
         $userId = Auth::id();
-        
+
         // Mark messages as read
         Message::where('sender_id', $otherUserId)
             ->where('receiver_id', $userId)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
-        $messages = Message::where(function($q) use ($userId, $otherUserId) {
-                $q->where('sender_id', $userId)->where('receiver_id', $otherUserId);
-            })
-            ->orWhere(function($q) use ($userId, $otherUserId) {
+        $messages = Message::where(function ($q) use ($userId, $otherUserId) {
+            $q->where('sender_id', $userId)->where('receiver_id', $otherUserId);
+        })
+            ->orWhere(function ($q) use ($userId, $otherUserId) {
                 $q->where('sender_id', $otherUserId)->where('receiver_id', $userId);
             })
             ->orderBy('created_at', 'asc') // Chat order
@@ -79,7 +78,7 @@ class MessageController extends Controller
         $request->validate([
             'receiver_id' => 'required|exists:users,id',
             'content' => 'required|string',
-            'listing_id' => 'nullable|exists:listings,id'
+            'listing_id' => 'nullable|exists:listings,id',
         ]);
 
         $message = Message::create([
@@ -100,7 +99,7 @@ class MessageController extends Controller
         $count = Message::where('receiver_id', Auth::id())
             ->whereNull('read_at')
             ->count();
-        
+
         return response()->json(['count' => $count]);
     }
 }

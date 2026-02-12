@@ -52,7 +52,7 @@ class Wallet extends Model
      */
     public function getFormattedBalanceAttribute(): string
     {
-        return $this->balance . ' ' . $this->currency_label;
+        return $this->balance.' '.$this->currency_label;
     }
 
     /**

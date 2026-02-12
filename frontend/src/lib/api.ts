@@ -237,7 +237,7 @@ export const apiGoogleLogin = async (data: { email: string; google_id: string; f
 
 export async function fetchCategories(typeOrParams?: string | any, activeOnly?: boolean) {
     // Build query parameters
-    let params = new URLSearchParams();
+    const params = new URLSearchParams();
 
     // If first param is a string (type), filter by it
     if (typeof typeOrParams === 'string' && typeOrParams !== 'all') {

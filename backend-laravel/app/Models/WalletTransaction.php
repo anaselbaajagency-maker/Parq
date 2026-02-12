@@ -10,18 +10,28 @@ class WalletTransaction extends Model
 {
     // Transaction Types
     const TYPE_BONUS = 'bonus';
+
     const TYPE_TOPUP_MANUAL = 'topup_manual';
+
     const TYPE_ONLINE_PAYMENT = 'online_payment';
+
     const TYPE_DEDUCTION = 'deduction';
+
     const TYPE_COUPON = 'coupon';
+
     const TYPE_ADMIN_CREDIT = 'admin_credit';
 
     // Transaction Sources
     const SOURCE_SYSTEM = 'system';
+
     const SOURCE_BANK_TRANSFER = 'bank_transfer';
+
     const SOURCE_CMI = 'cmi';
+
     const SOURCE_PAYZONE = 'payzone';
+
     const SOURCE_CASHPLUS = 'cashplus';
+
     const SOURCE_ADMIN = 'admin';
 
     protected $fillable = [
@@ -78,7 +88,8 @@ class WalletTransaction extends Model
     public function getFormattedAmountAttribute(): string
     {
         $sign = $this->amount > 0 ? '+' : '';
-        return $sign . $this->amount . ' ' . config('wallet.currency_label', 'SOLD DIRHAM');
+
+        return $sign.$this->amount.' '.config('wallet.currency_label', 'SOLD DIRHAM');
     }
 
     /**

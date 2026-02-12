@@ -37,7 +37,7 @@ class CategoryController extends Controller
     {
         $validated = $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:categories,id'
+            'ids.*' => 'exists:categories,id',
         ]);
 
         $ids = $validated['ids'];
@@ -46,7 +46,7 @@ class CategoryController extends Controller
         \App\Models\Category::query()->update(['show_on_homepage' => false]);
 
         // Mark selected as show_on_homepage
-        if (!empty($ids)) {
+        if (! empty($ids)) {
             \App\Models\Category::whereIn('id', $ids)->update(['show_on_homepage' => true]);
         }
 
@@ -69,7 +69,7 @@ class CategoryController extends Controller
             'description_fr' => 'nullable|string',
             'description_ar' => 'nullable|string',
             'is_active' => 'boolean',
-            'order' => 'integer'
+            'order' => 'integer',
         ]);
 
         return \App\Models\Category::create($validated);
@@ -94,17 +94,18 @@ class CategoryController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'name_fr' => 'nullable|string|max:255',
             'name_ar' => 'nullable|string|max:255',
-            'slug' => 'sometimes|required|string|unique:categories,slug,' . $category->id,
+            'slug' => 'sometimes|required|string|unique:categories,slug,'.$category->id,
             'type' => 'sometimes|required|in:rent,buy',
             'icon' => 'nullable|string',
             'description' => 'nullable|string',
             'description_fr' => 'nullable|string',
             'description_ar' => 'nullable|string',
             'is_active' => 'boolean',
-            'order' => 'integer'
+            'order' => 'integer',
         ]);
 
         $category->update($validated);
+
         return $category;
     }
 
@@ -115,6 +116,7 @@ class CategoryController extends Controller
     {
         $category = \App\Models\Category::findOrFail($id);
         $category->delete();
+
         return response()->noContent();
     }
 }

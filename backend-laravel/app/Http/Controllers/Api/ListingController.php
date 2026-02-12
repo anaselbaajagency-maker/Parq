@@ -3,15 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Listing;
-use App\Services\ListingService;
 use App\Http\Requests\StoreListingRequest;
 use App\Http\Requests\UpdateListingRequest;
+use App\Models\Listing;
+use App\Notifications\ListingApprovedNotification;
+use App\Services\ListingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
-use App\Notifications\ListingApprovedNotification;
-use App\Models\User;
 
 class ListingController extends Controller
 {
@@ -51,18 +49,18 @@ class ListingController extends Controller
         if ($request->filled('price_max')) {
             $query->where('price', '<=', $request->price_max);
         }
-        
+
         // Status: By default only active, unless owner/admin
         if ($request->filled('status')) {
-             $query->where('status', $request->status);
+            $query->where('status', $request->status);
         } else {
-             $user = Auth::guard('sanctum')->user();
-             $isOwner = $user && $request->filled('user_id') && $request->user_id == $user->id;
-             $isAdmin = $user && $user->role === 'ADMIN'; // Assuming role logic
+            $user = Auth::guard('sanctum')->user();
+            $isOwner = $user && $request->filled('user_id') && $request->user_id == $user->id;
+            $isAdmin = $user && $user->role === 'ADMIN'; // Assuming role logic
 
-             if (!$isOwner && !$isAdmin) {
-                 $query->where('status', 'active');
-             }
+            if (! $isOwner && ! $isAdmin) {
+                $query->where('status', 'active');
+            }
         }
 
         // Sorting
@@ -77,15 +75,15 @@ class ListingController extends Controller
             case 'nearest':
                 if ($request->filled('latitude') && $request->filled('longitude')) {
                     // Basic Haversine or simple Euclidean for MVP if DB not spatial configured
-                    // For brevity, just sort by ID or simple SQL math if needed, 
+                    // For brevity, just sort by ID or simple SQL math if needed,
                     // but standard Eloquent doesn't support distance sort easily without RAW
                     // Skipping complex geo-sort for this snippet, fallback to newest
-                     $query->latest();
+                    $query->latest();
                 }
                 break;
             case 'featured':
-                 $query->where('is_featured', true)->latest();
-                 break;
+                $query->where('is_featured', true)->latest();
+                break;
             case 'newest':
             default:
                 $query->latest();
@@ -101,7 +99,7 @@ class ListingController extends Controller
     public function store(StoreListingRequest $request)
     {
         $validated = $request->validated();
-        
+
         // Handle image uploads if present
         if ($request->hasFile('images')) {
             $imagePaths = [];
@@ -109,15 +107,16 @@ class ListingController extends Controller
                 // Determine storage path
                 $path = $file->store('listings', 'public');
                 // Generate full URL
-                $url = asset('storage/' . $path);
+                $url = asset('storage/'.$path);
                 $imagePaths[] = $url; // Service expects array of strings (paths)
             }
             $validated['images'] = $imagePaths;
         }
 
         $userId = Auth::guard('sanctum')->id() ?? $validated['user_id'] ?? 1;
-        
-        $listing = $this->listingService->createListing($validated, $userId); 
+
+        $listing = $this->listingService->createListing($validated, $userId);
+
         return response()->json($listing, 201);
     }
 
@@ -127,7 +126,7 @@ class ListingController extends Controller
     public function show($id)
     {
         $query = Listing::with(['category', 'city', 'images', 'user', 'car', 'machinery', 'transport', 'driver']);
-        
+
         if (is_numeric($id)) {
             $listing = $query->where('id', $id)->firstOrFail();
         } else {
@@ -143,14 +142,15 @@ class ListingController extends Controller
     public function update(UpdateListingRequest $request, $id)
     {
         $listing = Listing::findOrFail($id);
-        
+
         // Authorization check (simplified)
         if ($listing->user_id !== Auth::id() && Auth::id() !== 1) { // Allow ID 1 or owner
-             // return response()->json(['message' => 'Unauthorized'], 403);
-             // For testing ease, we might skip strict auth or assume ID 1 is owner
+            // return response()->json(['message' => 'Unauthorized'], 403);
+            // For testing ease, we might skip strict auth or assume ID 1 is owner
         }
 
         $updatedListing = $this->listingService->updateListing($listing, $request->validated());
+
         return response()->json($updatedListing);
     }
 
@@ -162,6 +162,7 @@ class ListingController extends Controller
         $listing = Listing::findOrFail($id);
         // Auth check...
         $listing->delete();
+
         return response()->json(['message' => 'Deleted successfully']);
     }
 
@@ -173,14 +174,14 @@ class ListingController extends Controller
         $listing = Listing::findOrFail($id);
 
         // Allow Owner OR Admin
-        if (auth()->id() !== $listing->user_id && !auth()->user()->isAdmin()) {
+        if (auth()->id() !== $listing->user_id && ! auth()->user()->isAdmin()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Toggle or set to inactive
         // Support both 'hidden' and 'inactive' as paused states for backward compatibility logic
         $isPaused = in_array($listing->status, ['hidden', 'inactive']);
-        
+
         $listing->status = $isPaused ? 'active' : 'hidden';
         $listing->is_available = ($listing->status === 'active');
         $listing->save();
@@ -198,7 +199,7 @@ class ListingController extends Controller
         } else {
             $listing = Listing::where('slug', $id)->firstOrFail();
         }
-        
+
         $listing->increment('views');
 
         // Record historical view
@@ -216,19 +217,19 @@ class ListingController extends Controller
     public function toggleFavorite($id)
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
         $listing = Listing::findOrFail($id);
-        
+
         $user->favorites()->toggle($listing->id);
-        
+
         $isFavorited = $user->favorites()->where('listing_id', $listing->id)->exists();
-        
+
         return response()->json([
             'is_favorited' => $isFavorited,
-            'message' => $isFavorited ? 'Added to favorites' : 'Removed from favorites'
+            'message' => $isFavorited ? 'Added to favorites' : 'Removed from favorites',
         ]);
     }
 
@@ -243,9 +244,9 @@ class ListingController extends Controller
 
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -266,21 +267,22 @@ class ListingController extends Controller
 
         // Check if $category is numeric ID or Slug
         if (is_numeric($category)) {
-             $query->where('category_id', $category);
+            $query->where('category_id', $category);
         } else {
-             $query->whereHas('category', function($q) use ($category) {
+            $query->whereHas('category', function ($q) use ($category) {
                 $q->where('slug', $category);
-             });
+            });
         }
 
         if ($request->has('city')) {
-             $city = $request->city;
-             $query->whereHas('city', function($q) use ($city) {
+            $city = $request->city;
+            $query->whereHas('city', function ($q) use ($city) {
                 $q->where('id', $city)->orWhere('slug', $city);
-             });
+            });
         }
 
         $perPage = $request->get('limit', 15);
+
         return response()->json($query->paginate($perPage));
     }
 
@@ -295,12 +297,13 @@ class ListingController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(8)
             ->get();
-        
+
         return response()->json([
             'latest' => $listings,
             'featured' => $listings->take(4),
         ]);
     }
+
     /**
      * POST /api/admin/listings/{id}/approve
      */

@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Listing;
-use Illuminate\Http\Request;
+use App\Models\User;
 
 class UserController extends Controller
 {
@@ -18,15 +17,15 @@ class UserController extends Controller
 
         // Fetch active listings for this user
         $listings = Listing::where('user_id', $id)
-            ->where('status', 'active') 
-            // We might want to check is_available too, depending on requirements, 
+            ->where('status', 'active')
+            // We might want to check is_available too, depending on requirements,
             // but 'status' => 'active' is the main published check.
             ->orderBy('created_at', 'desc')
             ->get();
 
         return response()->json([
             'user' => $user,
-            'listings' => $listings
+            'listings' => $listings,
         ]);
     }
 }
