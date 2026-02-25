@@ -7,10 +7,6 @@ import { MapPin, Calendar, Tag, Info } from 'lucide-react';
 
 
 
-export function generateStaticParams() {
-    return [{ slug: 'default' }];
-}
-
 export default async function ListingPage({
     params,
 }: {

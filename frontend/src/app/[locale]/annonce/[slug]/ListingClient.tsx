@@ -26,9 +26,10 @@ import {
 import { fetchListingBySlug, Listing } from '@/lib/api';
 import ViewTracker from './ViewTracker';
 import styles from './listing.module.css';
+import UnavailableListing from '@/components/UnavailableListing';
 import InactiveListingGuard from '@/components/InactiveListingGuard';
 import ListingActions from './ListingActions';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface ListingClientProps {
     slug: string;
@@ -36,9 +37,10 @@ interface ListingClientProps {
 
 export default function ListingClient({ slug }: ListingClientProps) {
     const locale = useLocale();
+    const t = useTranslations('Listing');
     const [listing, setListing] = useState<Listing | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
+    const [error, setError] = useState<number | boolean>(false);
 
     useEffect(() => {
         async function loadListing() {
@@ -49,9 +51,14 @@ export default function ListingClient({ slug }: ListingClientProps) {
                 } else {
                     setError(true);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error(err);
-                setError(true);
+                const isUnauthorized = err.message?.includes('403') || err.message?.includes('not currently available');
+                if (isUnauthorized) {
+                    setError(403);
+                } else {
+                    setError(true);
+                }
             } finally {
                 setLoading(false);
             }
@@ -59,10 +66,14 @@ export default function ListingClient({ slug }: ListingClientProps) {
         loadListing();
     }, [slug]);
 
-    if (loading) return <div className="p-20 text-center">Chargement de l'annonce...</div>;
+    if (loading) return <div className="p-20 text-center">{t('loading')}</div>;
+
+    if (error === 403) {
+        return <UnavailableListing />;
+    }
 
     if (error || !listing) {
-        return <div className="p-20 text-center">Annonce introuvable ou supprimée.</div>;
+        return <div className="p-20 text-center">{t('not_found')}</div>;
     }
 
     const isRent = listing.type === 'rent';
@@ -103,16 +114,18 @@ export default function ListingClient({ slug }: ListingClientProps) {
                 <header className={styles.header}>
                     <div className={styles.metaHeader}>
                         <div className={styles.titleSection}>
-                            <h1 className={styles.title}>{listing.title}</h1>
+                            <h1 className={styles.title}>
+                                {locale === 'ar' && listing.title_ar ? listing.title_ar : listing.title}
+                            </h1>
                             <div className={styles.metaLeft}>
                                 <div className="flex items-center gap-1 font-medium bg-gray-100 px-2 py-1 rounded-full text-xs">
                                     <Star size={14} className="fill-black" />
-                                    <span>{listing.rating || 'Nouveau'}</span>
+                                    <span>{listing.rating || t('new')}</span>
                                 </div>
                                 <span className={styles.metaDot}>•</span>
                                 <span className={styles.location}>
                                     <MapPin size={16} className="inline mr-1" />
-                                    {listing.city?.name || 'Maroc'}
+                                    {locale === 'ar' && listing.city?.name_ar ? listing.city.name_ar : (listing.city?.name || t('morocco'))}
                                 </span>
                                 <span className={styles.metaDot}>•</span>
                                 <span className="text-gray-500">Ref: #{listing.id}</span>
@@ -157,7 +170,7 @@ export default function ListingClient({ slug }: ListingClientProps) {
 
                     <button className={styles.showAllBtn}>
                         <Grid3X3 size={18} />
-                        Afficher toutes les photos
+                        {t('show_all_photos')}
                         {remainingCount > 0 && <span className="bg-gray-100 px-1.5 py-0.5 rounded-md text-xs ml-1">+{remainingCount}</span>}
                     </button>
                 </div>
@@ -169,52 +182,70 @@ export default function ListingClient({ slug }: ListingClientProps) {
 
                         {/* Description */}
                         <div className={styles.section}>
-                            <div className={styles.sectionTitle}>À propos de ce véhicule</div>
+                            <div className={styles.sectionTitle}>{t('about_vehicle')}</div>
                             <p className={styles.description}>
-                                {listing.description || `Découvrez ce ${listing.title} exceptionnel, idéal pour vos chantiers. Entretien régulier et performances garanties.`}
+                                {locale === 'ar' && listing.description_ar
+                                    ? listing.description_ar
+                                    : (listing.description || `Découvrez ce ${listing.title} exceptionnel, idéal pour vos chantiers. Entretien régulier et performances garanties.`)}
                             </p>
                         </div>
 
                         {/* Critères (Attributes) Grid */}
                         <div className={styles.section}>
-                            <div className={styles.sectionTitle}>Caractéristiques Techniques</div>
+                            <div className={styles.sectionTitle}>{t('technical_specs')}</div>
                             <div className={styles.specsGrid}>
                                 <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><CheckCircle2 size={14} /> Type</span>
-                                    <span className={styles.specValue}>{isRent ? 'Location' : 'Vente'}</span>
+                                    <span className={styles.specLabel}><CheckCircle2 size={14} /> {t('type')}</span>
+                                    <span className={styles.specValue}>{isRent ? t('rent') : t('buy')}</span>
                                 </div>
                                 <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Gauge size={14} /> Catégorie</span>
-                                    <span className={styles.specValue}>{listing.category_name || listing.category_slug || 'Standard'}</span>
+                                    <span className={styles.specLabel}><Gauge size={14} /> {t('category')}</span>
+                                    <span className={styles.specValue}>{listing.category_name || listing.category_slug || t('standard')}</span>
                                 </div>
                                 <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Award size={14} /> Marque</span>
-                                    <span className={styles.specValue}>{listing.brand || 'N/A'}</span>
+                                    <span className={styles.specLabel}><Award size={14} /> {t('brand')}</span>
+                                    <span className={styles.specValue}>{listing.brand || t('na')}</span>
                                 </div>
                                 <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Calendar size={14} /> Année</span>
+                                    <span className={styles.specLabel}><Award size={14} /> {t('model')}</span>
+                                    <span className={styles.specValue}>{listing.model || t('na')}</span>
+                                </div>
+                                <div className={styles.specItem}>
+                                    <span className={styles.specLabel}><Calendar size={14} /> {t('year')}</span>
                                     <span className={styles.specValue}>{listing.year || '2022'}</span>
                                 </div>
                                 <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Fuel size={14} /> Carburant</span>
-                                    <span className={styles.specValue}>{listing.fuel || 'Diesel'}</span>
+                                    <span className={styles.specLabel}><Fuel size={14} /> {t('fuel')}</span>
+                                    <span className={styles.specValue}>{listing.fuel ? t(`fuel_${listing.fuel}`) : t('diesel')}</span>
                                 </div>
                                 <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Gauge size={14} /> Puissance</span>
-                                    <span className={styles.specValue}>{listing.power || 'N/A'}</span>
+                                    <span className={styles.specLabel}><Cog size={14} /> {t('gearbox')}</span>
+                                    <span className={styles.specValue}>{listing.gearbox ? t(`gearbox_${listing.gearbox}`) : t('na')}</span>
                                 </div>
                                 <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><ShieldCheck size={14} /> État</span>
-                                    <span className={styles.specValue}>{listing.condition || 'Occasion vérifiée'}</span>
+                                    <span className={styles.specLabel}><Gauge size={14} /> {t('power')}</span>
+                                    <span className={styles.specValue}>{listing.power || t('na')}</span>
+                                </div>
+                                <div className={styles.specItem}>
+                                    <span className={styles.specLabel}><Gauge size={14} /> {t('seats')}</span>
+                                    <span className={styles.specValue}>{listing.seats || t('na')}</span>
+                                </div>
+                                <div className={styles.specItem}>
+                                    <span className={styles.specLabel}><Gauge size={14} /> {t('tonnage')}</span>
+                                    <span className={styles.specValue}>{listing.tonnage || t('na')}</span>
+                                </div>
+                                <div className={styles.specItem}>
+                                    <span className={styles.specLabel}><ShieldCheck size={14} /> {t('condition')}</span>
+                                    <span className={styles.specValue}>{listing.condition ? t(`condition_${listing.condition}`) : t('condition_verified')}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Features / Equipments */}
                         <div className={styles.section}>
-                            <div className={styles.sectionTitle}>Équipements & Options</div>
+                            <div className={styles.sectionTitle}>{t('equipments_options')}</div>
                             <div className={styles.featuresGrid}>
-                                {listing.features ? (
+                                {listing.features && listing.features.length > 0 ? (
                                     (() => {
                                         try {
                                             // Handle both array and string (JSON) cases
@@ -225,26 +256,26 @@ export default function ListingClient({ slug }: ListingClientProps) {
                                             return Array.isArray(features) && features.map((feature: string, idx: number) => (
                                                 <div key={idx} className={styles.featureItem}>
                                                     <CheckCircle2 size={20} className={styles.featureIcon} />
-                                                    <div className={styles.featureText}>{feature}</div>
+                                                    <div className={styles.featureText}>{t(feature) !== feature ? t(feature) : feature}</div>
                                                 </div>
                                             ));
                                         } catch (e) {
-                                            return <div className="text-gray-500 italic">Information non disponible</div>;
+                                            return <div className="text-gray-500 italic">{t('info_not_available')}</div>;
                                         }
                                     })()
                                 ) : (
                                     <>
                                         <div className={styles.featureItem}>
                                             <Truck size={20} className={styles.featureIcon} />
-                                            <div className={styles.featureText}>Transport inclus disponible</div>
+                                            <div className={styles.featureText}>{t('transport_included')}</div>
                                         </div>
                                         <div className={styles.featureItem}>
                                             <ShieldCheck size={20} className={styles.featureIcon} />
-                                            <div className={styles.featureText}>Assurance tous risques</div>
+                                            <div className={styles.featureText}>{t('insurance_included')}</div>
                                         </div>
                                         <div className={styles.featureItem}>
                                             <SettingsIcon size={20} className={styles.featureIcon} />
-                                            <div className={styles.featureText}>Maintenance incluse</div>
+                                            <div className={styles.featureText}>{t('maintenance_included')}</div>
                                         </div>
                                     </>
                                 )}
@@ -264,7 +295,7 @@ export default function ListingClient({ slug }: ListingClientProps) {
                                 <div className={styles.badges}>
                                     <span className={styles.badgeAvailable}>
                                         <CheckCircle2 size={14} />
-                                        Disponible immédiatement
+                                        {t('available_immediately')}
                                     </span>
                                 </div>
                             </div>
@@ -283,14 +314,14 @@ export default function ListingClient({ slug }: ListingClientProps) {
                                             )}
                                         </div>
                                         <div className={styles.sellerInfo}>
-                                            <h3 className="hover:text-orange-600 transition-colors">{listing.user?.full_name || listing.user_name || 'Utilisateur Parq'}</h3>
+                                            <h3 className="hover:text-orange-600 transition-colors">{listing.user?.full_name || listing.user_name || t('parq_user')}</h3>
                                             <div className={styles.memberSince}>
-                                                Membre depuis {listing.user?.created_at ? new Date(listing.user.created_at).getFullYear() : (listing.user_since ? new Date(listing.user_since).getFullYear() : '2023')}
+                                                {t('member_since_label')} {listing.user?.created_at ? new Date(listing.user.created_at).getFullYear() : (listing.user_since ? new Date(listing.user_since).getFullYear() : '2023')}
                                             </div>
                                             {listing.user?.role === 'admin' && (
                                                 <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 mt-1 bg-blue-50 px-2 py-0.5 rounded w-fit">
                                                     <ShieldCheck size={12} />
-                                                    <span>Officiel Parq</span>
+                                                    <span>{t('official_parq')}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -304,15 +335,15 @@ export default function ListingClient({ slug }: ListingClientProps) {
                                 whatsapp={listing.user?.phone || null}
                                 sellerId={listing.user?.id || listing.user_id}
                                 listingId={listing.id}
-                                messagesPath={`/${locale}/tableau-de-bord/messages`}
+                                messagesPath="/tableau-de-bord/messages"
                                 recipientName={listing.user?.full_name || listing.user_name}
-                                listingTitle={listing.title}
+                                listingTitle={locale === 'ar' && listing.title_ar ? listing.title_ar : listing.title}
                             />
 
                             {/* Security Note */}
                             <div className={styles.securityNote}>
                                 <ShieldCheck size={16} className="text-green-600" />
-                                <span className={styles.securityText}>Paiement 100% sécurisé et garantie Parq</span>
+                                <span className={styles.securityText}>{t('secure_payment')}</span>
                             </div>
                         </div>
                     </aside>

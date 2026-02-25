@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import createMiddleware from 'next-intl/middleware';
+import { routing } from './navigation';
 
-// Middleware is disabled for Static Export as it's not supported
-export default function middleware(request: NextRequest) {
-    return NextResponse.next();
-}
+export default createMiddleware(routing);
 
 export const config = {
-    matcher: []
+    // Match only internationalized pathnames
+    matcher: ['/', '/(fr|ar)/:path*']
 };

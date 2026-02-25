@@ -29,7 +29,18 @@ export default function EditListingClient({ id }: { id: string }) {
         type: 'rent',
         category_id: '',
         city_id: '',
-        is_available: true
+        is_available: true,
+        // Tech Specs
+        brand: '',
+        model: '',
+        year: '',
+        condition: '', // new, used
+        fuel_type: '',
+        gearbox: '',
+        power: '',
+        seats: '',
+        tonnage: '',
+        with_driver: false
     });
 
     // Image State
@@ -61,21 +72,34 @@ export default function EditListingClient({ id }: { id: string }) {
                         type: listingData.type as 'rent' | 'buy' || 'rent',
                         category_id: listingData.category_id?.toString() || '',
                         city_id: listingData.city_id?.toString() || '',
-                        is_available: !!listingData.is_available
+                        is_available: !!listingData.is_available,
+                        // Load new fields with safe access
+                        brand: listingData.brand || listingData.machinery?.brand || '',
+                        model: listingData.model || listingData.machinery?.model || '',
+                        year: (listingData.year || listingData.machinery?.year || '').toString(),
+                        condition: listingData.condition || listingData.machinery?.condition || '',
+                        fuel_type: listingData.fuel || listingData.car?.fuel_type || '',
+                        gearbox: listingData.gearbox || listingData.car?.gearbox || '',
+                        power: listingData.power || listingData.machinery?.power || '',
+                        seats: (listingData.seats || listingData.car?.seats || '').toString(),
+                        tonnage: listingData.machinery?.tonnage || '',
+                        with_driver: !!listingData.machinery?.with_driver
                     });
                     // Set existing hero image preview
                     const heroUrl = listingData.image_hero || listingData.main_image;
                     if (heroUrl) {
                         setHeroPreview(heroUrl);
                     }
-                    // Set existing gallery images
+                    // Set existing gallery images (Filter out the hero image)
                     if (listingData.images && listingData.images.length > 0) {
                         const imgPaths = listingData.images.map((img: any) => img.image_path || img);
-                        setExistingImages(imgPaths);
+                        const galleryOnly = imgPaths.filter((p: string) => p !== heroUrl);
+                        setExistingImages(galleryOnly);
                     }
                 }
             } catch (error) {
-                console.error('Failed to load listing data', error);
+                console.error('Failed to load listing data. Full error:', error);
+                // alert('Failed to load listing data'); // Optional: show user feedback
             } finally {
                 setLoading(false);
             }
@@ -102,14 +126,38 @@ export default function EditListingClient({ id }: { id: string }) {
             data.append('category_id', formData.category_id);
             data.append('city_id', formData.city_id);
             data.append('is_available', formData.is_available ? '1' : '0');
+
+            // Append Tech Specs
+            if (formData.brand) data.append('brand', formData.brand);
+            if (formData.model) data.append('model', formData.model);
+            if (formData.year) data.append('year', formData.year);
+            if (formData.condition) data.append('condition', formData.condition);
+            if (formData.fuel_type) data.append('fuel_type', formData.fuel_type);
+            if (formData.gearbox) data.append('gearbox', formData.gearbox);
+            if (formData.power) data.append('power', formData.power);
+            if (formData.seats) data.append('seats', formData.seats);
+            if (formData.tonnage) data.append('tonnage', formData.tonnage);
+            data.append('with_driver', formData.with_driver ? '1' : '0');
+
             data.append('_method', 'PUT'); // Laravel method spoofing for FormData
+
+            // DEBUG: Log FormData content
+            console.log('Submitting Listing Update:');
+            console.log('Title:', formData.title);
+            console.log('Hero Image File:', heroImage);
 
             if (heroImage) {
                 data.append('image_hero', heroImage);
             }
 
-            additionalImages.forEach((file, index) => {
-                data.append(`images[${index}]`, file);
+            // Append existing images that were NOT removed
+            existingImages.forEach((url) => {
+                data.append('existing_images[]', url);
+            });
+
+            // Append new additional images
+            additionalImages.forEach((file) => {
+                data.append('images[]', file);
             });
 
             const updated = await updateListing(id, data);
@@ -135,11 +183,18 @@ export default function EditListingClient({ id }: { id: string }) {
         }
     };
 
-    const handleAdditionalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length > 0) {
+    const handleAdditionalImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            const totalImages = existingImages.length + additionalImages.length + files.length;
+
+            if (totalImages > 2) {
+                alert(locale === 'ar' ? 'الحد الأقصى للصور هو 2' : 'max de image est 2');
+                return;
+            }
+
             setAdditionalImages(prev => [...prev, ...files]);
-            const newPreviews = files.map(f => URL.createObjectURL(f));
+            const newPreviews = files.map(file => URL.createObjectURL(file));
             setAdditionalPreviews(prev => [...prev, ...newPreviews]);
         }
     };
@@ -147,6 +202,10 @@ export default function EditListingClient({ id }: { id: string }) {
     const removeAdditionalImage = (index: number) => {
         setAdditionalImages(prev => prev.filter((_, i) => i !== index));
         setAdditionalPreviews(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const removeExistingImage = (index: number) => {
+        setExistingImages(prev => prev.filter((_, i) => i !== index));
     };
 
     if (loading) {
@@ -231,6 +290,7 @@ export default function EditListingClient({ id }: { id: string }) {
                             <MapPin className={styles.selectIcon} />
                             <select name="city_id" value={formData.city_id} onChange={handleChange} required className={`${styles.select} ${styles.selectWithIcon}`}>
                                 <option value="">{t('select_city')}</option>
+                                <option value="fr">France</option>
                                 {cities.map(c => (
                                     <option key={c.id} value={c.id}>
                                         {locale === 'ar' && c.name_ar ? c.name_ar
@@ -239,6 +299,131 @@ export default function EditListingClient({ id }: { id: string }) {
                                     </option>
                                 ))}
                             </select>
+                        </div>
+                    </div>
+
+                    {/* Technical Specs Section */}
+                    <div className={styles.sectionDivider}>
+                        <h3>{t('technical_specs')}</h3>
+                    </div>
+
+                    <div className={styles.row}>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_brand')}</label>
+                            <input
+                                type="text"
+                                name="brand"
+                                value={formData.brand}
+                                onChange={handleChange}
+                                className={styles.input}
+                                placeholder={t('placeholder_brand') || "ex: Caterpillar, Mercedes..."}
+                            />
+                        </div>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_model')}</label>
+                            <input
+                                type="text"
+                                name="model"
+                                value={formData.model}
+                                onChange={handleChange}
+                                className={styles.input}
+                                placeholder={t('placeholder_model') || "ex: D6, Actros..."}
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.row}>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_year')}</label>
+                            <input
+                                type="number"
+                                name="year"
+                                value={formData.year}
+                                onChange={handleChange}
+                                className={styles.input}
+                                placeholder="ex: 2022"
+                            />
+                        </div>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_condition')}</label>
+                            <select name="condition" value={formData.condition} onChange={handleChange} className={styles.select}>
+                                <option value="">{t('select_condition') || "Choisir l'état"}</option>
+                                <option value="new">{t('condition_new')}</option>
+                                <option value="excellent">{t('condition_excellent')}</option>
+                                <option value="good">{t('condition_good')}</option>
+                                <option value="fair">{t('condition_fair')}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className={styles.row}>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_power')}</label>
+                            <input
+                                type="text"
+                                name="power"
+                                value={formData.power}
+                                onChange={handleChange}
+                                className={styles.input}
+                                placeholder="ex: 150 ch, 200 kW"
+                            />
+                        </div>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_fuel')}</label>
+                            <select name="fuel_type" value={formData.fuel_type} onChange={handleChange} className={styles.select}>
+                                <option value="">{t('select_option') || "Choisir"}</option>
+                                <option value="diesel">{t('fuel_diesel') || "Diesel"}</option>
+                                <option value="gasoline">{t('fuel_gasoline') || "Essence"}</option>
+                                <option value="hybrid">{t('fuel_hybrid') || "Hybride"}</option>
+                                <option value="electric">{t('fuel_electric') || "Électrique"}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className={styles.row}>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_gearbox')}</label>
+                            <select name="gearbox" value={formData.gearbox} onChange={handleChange} className={styles.select}>
+                                <option value="">{t('select_option') || "Choisir"}</option>
+                                <option value="manual">{t('gearbox_manual') || "Manuelle"}</option>
+                                <option value="automatic">{t('gearbox_automatic') || "Automatique"}</option>
+                            </select>
+                        </div>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_seats')}</label>
+                            <input
+                                type="number"
+                                name="seats"
+                                value={formData.seats}
+                                onChange={handleChange}
+                                className={styles.input}
+                                placeholder="ex: 5"
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.row}>
+                        <div className={`${styles.col} ${styles.formGroup}`}>
+                            <label className={styles.label}>{t('label_tonnage')}</label>
+                            <input
+                                type="text"
+                                name="tonnage"
+                                value={formData.tonnage}
+                                onChange={handleChange}
+                                className={styles.input}
+                                placeholder={t('placeholder_tonnage') || "ex: 20T"}
+                            />
+                        </div>
+                        <div className={`${styles.col} ${styles.formGroup}`} style={{ display: 'flex', alignItems: 'center', height: '100%', paddingTop: '30px' }}>
+                            <label className={styles.checkboxLabel}>
+                                <input
+                                    type="checkbox"
+                                    name="with_driver"
+                                    checked={formData.with_driver}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, with_driver: e.target.checked }))}
+                                    className={styles.checkbox}
+                                />
+                                <span style={{ marginLeft: '10px' }}>{t('with_driver')}</span>
+                            </label>
                         </div>
                     </div>
 
@@ -289,12 +474,19 @@ export default function EditListingClient({ id }: { id: string }) {
 
                     {/* Additional Images Upload */}
                     <div className={styles.formGroup}>
-                        <label className={styles.label}>Images Additionnelles</label>
+                        <label className={styles.label}>Galerie d'images</label>
                         <div className={styles.imagesGrid}>
                             {/* Existing images */}
                             {existingImages.map((img, idx) => (
                                 <div key={`existing-${idx}`} className={styles.imagePreviewContainer}>
                                     <img src={img} alt={`Existing ${idx + 1}`} className={styles.imagePreview} />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeExistingImage(idx)}
+                                        className={styles.removeImageBtn}
+                                    >
+                                        <X size={16} />
+                                    </button>
                                 </div>
                             ))}
                             {/* New images */}
@@ -310,7 +502,7 @@ export default function EditListingClient({ id }: { id: string }) {
                             <label className={styles.addImageLabel}>
                                 <ImageIcon size={24} />
                                 <span>+ Ajouter</span>
-                                <input type="file" accept="image/*" multiple onChange={handleAdditionalChange} className={styles.hiddenInput} />
+                                <input type="file" accept="image/*" multiple onChange={handleAdditionalImagesChange} className={styles.hiddenInput} />
                             </label>
                         </div>
                     </div>
@@ -319,7 +511,7 @@ export default function EditListingClient({ id }: { id: string }) {
                         {saving ? t('saving') || 'Saving...' : 'Save Changes'}
                     </button>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

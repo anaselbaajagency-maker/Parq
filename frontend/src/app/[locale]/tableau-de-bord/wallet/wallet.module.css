@@ -799,6 +799,68 @@
     transition: all 0.2s;
 }
 
+/* RTL Support */
+[dir="rtl"] .grid {
+    direction: rtl;
+}
+
+[dir="rtl"] .balanceCard::before {
+    right: auto;
+    left: -30%;
+}
+
+[dir="rtl"] .balanceCard::after {
+    left: auto;
+    right: 0;
+    transform: scaleX(-1);
+}
+
+[dir="rtl"] .balanceCurrency {
+    margin-left: 0;
+    margin-right: 8px;
+}
+
+[dir="rtl"] .selectionCard.selected::after {
+    left: auto;
+    right: 0;
+}
+
+[dir="rtl"] .input {
+    text-align: right;
+}
+
+[dir="rtl"] .input+span {
+    right: auto;
+    left: 16px;
+}
+
+[dir="rtl"] .helpCard::before {
+    right: auto;
+    left: 0;
+    transform: scaleX(-1);
+}
+
+[dir="rtl"] .paymentMethodCard,
+[dir="rtl"] .transactionItem {
+    text-align: right;
+}
+
+[dir="rtl"] .paymentInfo {
+    text-align: right;
+}
+
+[dir="rtl"] .couponInput {
+    letter-spacing: normal;
+}
+
+[dir="rtl"] .backBtn svg {
+    transform: rotate(180deg);
+}
+
+[dir="rtl"] .historyLink svg {
+    transform: rotate(180deg);
+}
+
 .filterBtn:hover {
     background: #f1f5f9;
     color: var(--foreground);

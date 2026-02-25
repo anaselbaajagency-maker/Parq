@@ -5,12 +5,14 @@ import { useSearchParams } from 'next/navigation';
 import { api, Listing } from '@/lib/api';
 import ListingGrid from '@/components/ListingGrid';
 import { useTranslations } from 'next-intl';
+import { useAlert } from '@/context/AlertContext';
 
 export default function AnnoncesClient() {
     const t = useTranslations('Listings');
     const searchParams = useSearchParams();
     const [listings, setListings] = useState<Listing[]>([]);
     const [loading, setLoading] = useState(true);
+    const { showAlert } = useAlert();
 
     useEffect(() => {
         async function fetchListings() {
@@ -28,6 +30,7 @@ export default function AnnoncesClient() {
                 setListings(response.data);
             } catch (error) {
                 console.error("Failed to fetch listings:", error);
+                showAlert('error', 'Impossible de charger les annonces. Veuillez réessayer.', 'Erreur');
             } finally {
                 setLoading(false);
             }
@@ -40,7 +43,7 @@ export default function AnnoncesClient() {
         <div className="container mx-auto px-4 py-8">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold mb-4 md:mb-0">
-                    {t('page_title')}
+                    {t('title')}
                 </h1>
                 <div className="flex gap-2">
                     {/* Placeholder for Sort/Filter Controls */}
@@ -62,3 +65,4 @@ export default function AnnoncesClient() {
         </div>
     );
 }
+

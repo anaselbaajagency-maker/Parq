@@ -2,6 +2,7 @@
 
 import { useAuthStore } from '@/lib/auth-store';
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { Search, Send, MoreHorizontal, Circle, Check, CheckCheck } from 'lucide-react';
 import styles from './messages.module.css';
@@ -9,6 +10,7 @@ import { apiMessages, Conversation, Message } from '@/lib/api';
 
 export default function MessagesPage() {
     const { user } = useAuthStore();
+    const t = useTranslations('Dashboard');
     const [selectedChat, setSelectedChat] = useState<number | null>(null);
     const [message, setMessage] = useState('');
 
@@ -68,10 +70,10 @@ export default function MessagesPage() {
                 setSelectedChat(Number(recipientId));
             }
             if (listingTitle) {
-                setMessage(`Bonjour, je suis intéressé par votre annonce "${listingTitle}". Est-elle toujours disponible ?`);
+                setMessage(t('messages_page.default_inquiry', { title: listingTitle }));
             }
         }
-    }, [recipientId, recipientName, listingTitle, conversations]);
+    }, [recipientId, recipientName, listingTitle, conversations, t]);
 
     const handleSendMessage = async () => {
         if (!message.trim() || !selectedChat) return;
@@ -111,14 +113,14 @@ export default function MessagesPage() {
                 {/* Conversations List */}
                 <div className={styles.conversationsList}>
                     <div className={styles.listHeader}>
-                        <h2 className={styles.listTitle}>Messages</h2>
+                        <h2 className={styles.listTitle}>{t('messages_page.title')}</h2>
                     </div>
 
                     <div className={styles.searchWrapper}>
                         <Search size={16} className={styles.searchIcon} />
                         <input
                             type="text"
-                            placeholder="Search messages"
+                            placeholder={t('messages_page.search')}
                             className={styles.searchInput}
                         />
                     </div>
@@ -177,7 +179,7 @@ export default function MessagesPage() {
 
                     {/* Messages Area */}
                     <div className={styles.messagesArea}>
-                        <div className={styles.dateLabel}>Today</div>
+                        <div className={styles.dateLabel}>{t('messages_page.today')}</div>
 
                         {messages.map(msg => (
                             <div
@@ -204,7 +206,7 @@ export default function MessagesPage() {
                                 type="text"
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
-                                placeholder="Type a message..."
+                                placeholder={t('messages_page.type_message')}
                                 className={styles.messageInput}
                             />
                             <button

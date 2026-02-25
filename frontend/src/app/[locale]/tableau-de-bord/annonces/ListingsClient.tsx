@@ -45,7 +45,7 @@ export default function ListingsClient() {
     };
 
     const handleDelete = async (id: number | string) => {
-        if (!confirm('Are you sure you want to delete this listing?')) return;
+        if (!confirm(t('listings_page.delete_confirm'))) return;
 
         setProcessingId(id);
         try {
@@ -72,22 +72,25 @@ export default function ListingsClient() {
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
-                    <h1 className={dashStyles.dashTitle}>{t('my_fleet')}</h1>
+                    <h1 className={dashStyles.dashTitle}>
+                        {t('my_fleet')}
+                        <span className={dashStyles.countBadge}>{listings.length}</span>
+                    </h1>
                     <p className={dashStyles.dashSubtitle}>
-                        {listings.length} {listings.length === 1 ? 'listing' : 'listings'}
+                        {t('manage_fleet')}
                     </p>
                 </div>
 
                 <div className={styles.headerActions}>
                     <div className={styles.filterDropdown}>
                         <button className={styles.filterBtn}>
-                            <span>All listings</span>
+                            <span>{t('listings_page.all_listings')}</span>
                             <ChevronDown size={16} />
                         </button>
                     </div>
                     <Link href="/create" className={styles.addBtn}>
                         <Plus size={18} />
-                        <span>Add listing</span>
+                        <span>{t('listings_page.add_listing')}</span>
                     </Link>
                 </div>
             </div>
@@ -110,34 +113,53 @@ export default function ListingsClient() {
                     {listings.map(item => (
                         <div key={item.id} className={styles.listingCard}>
                             {/* Image */}
+                            {/* Image */}
                             <div className={styles.cardImage}>
-                                {(item.image_hero || item.main_image || item.image) ? (
-                                    <img
-                                        src={item.image_hero || item.main_image || item.image}
-                                        alt={item.title}
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                        }}
-                                    />
-                                ) : (
-                                    <div className={styles.placeholderBg}>
-                                        <ImageIcon size={32} className={styles.placeholderIcon} />
-                                    </div>
-                                )}
+                                {(() => {
+                                    // Helper to resolve image URL safely
+                                    const getImageUrl = (item: any) => {
+                                        if (item.image_hero) return item.image_hero;
+                                        if (item.main_image) return item.main_image;
+                                        if (item.image) return item.image;
+                                        // Fallback to first image in images array (which might be strings or objects)
+                                        if (item.images && Array.isArray(item.images) && item.images.length > 0) {
+                                            const first = item.images[0];
+                                            if (typeof first === 'string') return first;
+                                            if (typeof first === 'object' && first.image_path) return first.image_path;
+                                        }
+                                        return null;
+                                    };
+
+                                    const imageUrl = getImageUrl(item);
+
+                                    return imageUrl ? (
+                                        <img
+                                            src={imageUrl}
+                                            alt={item.title}
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className={styles.placeholderBg}>
+                                            <ImageIcon size={32} className={styles.placeholderIcon} />
+                                        </div>
+                                    );
+                                })()}
                                 {/* Fallback for error state */}
                                 <div className={`${styles.placeholderBg} hidden`}>
                                     <ImageIcon size={32} className={styles.placeholderIcon} />
                                 </div>
                                 <div className={styles.cardStatus}>
                                     {item.status === 'pending' ? (
-                                        <span className={`${styles.statusActive} ${styles.statusPending}`}>Pending</span>
+                                        <span className={`${styles.statusActive} ${styles.statusPending}`}>{t('listings_page.pending')}</span>
                                     ) : item.status === 'rejected' ? (
-                                        <span className={`${styles.statusActive} ${styles.statusRejected}`}>Rejected</span>
+                                        <span className={`${styles.statusActive} ${styles.statusRejected}`}>{t('listings_page.rejected')}</span>
                                     ) : item.status === 'paused' ? (
-                                        <span className={`${styles.statusActive} ${styles.statusPaused}`}>Paused</span>
+                                        <span className={`${styles.statusActive} ${styles.statusPaused}`}>{t('listings_page.paused')}</span>
                                     ) : (
-                                        <span className={styles.statusActive}>Active</span>
+                                        <span className={styles.statusActive}>{t('listings_page.active')}</span>
                                     )}
                                 </div>
                                 <button className={styles.moreBtn} onClick={() => handleDelete(item.id)}>
@@ -154,15 +176,15 @@ export default function ListingsClient() {
                                 </h3>
                                 <p className={styles.cardLocation}>{item.city?.name || 'Maroc'}</p>
                                 <div className={styles.cardMeta}>
-                                    <div className="flex flex-col gap-1 w-full">
-                                        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                                            <span className="flex items-center gap-1">
-                                                <Eye size={14} />
-                                                {item.views || 0} {t('stats.total_views', { defaultMessage: 'Vues' }).split(' ')[0]}
+                                    <div className="flex flex-col gap-2 w-full">
+                                        <div className={styles.statsRow}>
+                                            <span className={styles.statItem} title={t('stats.total_views', { defaultMessage: 'Total Views' })}>
+                                                <Eye size={14} className={styles.statIcon} />
+                                                {item.views || 0}
                                             </span>
 
-                                            <span className="flex items-center gap-1 font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-                                                <span className="text-[10px] uppercase tracking-wide">Dépensé</span>
+                                            <span className={styles.spentBadge} title={t('listings_page.spent', { defaultMessage: 'Total Spent' })}>
+                                                <span className={styles.spentLabel}>{t('listings_page.spent')}</span>
                                                 <span>
                                                     {Math.floor(
                                                         (Math.max(0, new Date().getTime() - new Date(item.published_at || item.created_at).getTime()) / (1000 * 3600 * 24))
@@ -190,31 +212,31 @@ export default function ListingsClient() {
                                     <div className={styles.cardActions}>
                                         <Link href={`/tableau-de-bord/annonces/edit/${item.id}` as any} className={styles.actionBtn}>
                                             <Edit2 size={16} />
-                                            Edit
+                                            {t('listings_page.edit')}
                                         </Link>
                                         <button
                                             className={styles.actionBtn}
                                             onClick={() => handleToggleStatus(item.id, item.status || 'pending')}
                                             disabled={processingId === item.id || !isActionable}
                                             style={{ opacity: !isActionable ? 0.5 : 1, cursor: !isActionable ? 'not-allowed' : 'pointer' }}
-                                            title={!isActionable ? "Can only pause active listings" : ""}
+                                            title={!isActionable ? t('listings_page.pause_tooltip') : ""}
                                         >
                                             {processingId === item.id ? (
                                                 <Loader2 size={16} className={styles.spinner} />
                                             ) : isPaused ? (
                                                 <>
                                                     <Play size={16} />
-                                                    Resume
+                                                    {t('listings_page.resume')}
                                                 </>
                                             ) : isActive ? (
                                                 <>
                                                     <Pause size={16} />
-                                                    Pause
+                                                    {t('listings_page.pause')}
                                                 </>
                                             ) : (
                                                 <>
                                                     <Pause size={16} />
-                                                    Pause
+                                                    {t('listings_page.pause')}
                                                 </>
                                             )}
                                         </button>
@@ -229,7 +251,7 @@ export default function ListingsClient() {
                         <div className={styles.addCardIcon}>
                             <Plus size={32} />
                         </div>
-                        <span>Add a new listing</span>
+                        <span>{t('listings_page.add_new_listing')}</span>
                     </Link>
                 </div>
             )}

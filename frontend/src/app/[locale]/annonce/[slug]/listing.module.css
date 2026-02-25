@@ -6,7 +6,7 @@
     margin: 80px auto 0;
     padding: 0 24px;
     color: #1A1A1A;
-    font-family: var(--font-inter, sans-serif);
+    /* font-family: var(--font-inter, sans-serif); Removed to allow global Cairo font */
 }
 
 @media (min-width: 768px) {

@@ -10,7 +10,7 @@
   --color-brand-hover: #E5A600;
 
   /* Typography */
-  --font-primary: 'Cairo', 'Almarai', sans-serif;
+  --font-primary: var(--font-cairo), 'Almarai', sans-serif;
 
   /* Spacing */
   --space-xs: 0.25rem;
@@ -47,6 +47,13 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
 }
 
 h1,

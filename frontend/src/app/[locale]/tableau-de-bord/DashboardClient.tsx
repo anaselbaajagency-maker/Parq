@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Link } from '../../../navigation';
 import {
     Package, MessageSquare,
-    Plus, Wallet, Eye, ChevronRight, Loader2, TrendingDown
+    Plus, Wallet, Eye, ChevronRight, Loader2, TrendingDown, Gift, X
 } from 'lucide-react';
 import {
     fetchDashboardStats,
@@ -21,11 +21,13 @@ import {
 import { WalletBalance } from '@/types/wallet';
 import WalletSummaryCard from '@/components/wallet/WalletSummaryCard';
 import LowBalanceAlert from '@/components/wallet/LowBalanceAlert';
+import { useAlert } from '@/context/AlertContext';
 import styles from './dashboard.module.css';
 
 export default function DashboardClient() {
     const { user } = useAuthStore();
     const t = useTranslations('Dashboard');
+    const { showAlert } = useAlert();
 
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [activity, setActivity] = useState<DashboardActivity[]>([]);
@@ -33,6 +35,20 @@ export default function DashboardClient() {
     const [wallet, setWallet] = useState<WalletBalance | null>(null);
     const [listingsCount, setListingsCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [showWelcome, setShowWelcome] = useState(false);
+
+    useEffect(() => {
+        // Check if we should show welcome message (e.g., query param or checking wallet for bonus)
+        const hasSeenWelcome = localStorage.getItem('parq_welcome_seen');
+        if (!hasSeenWelcome) {
+            setShowWelcome(true);
+        }
+    }, []);
+
+    const dismissWelcome = () => {
+        setShowWelcome(false);
+        localStorage.setItem('parq_welcome_seen', 'true');
+    };
 
     useEffect(() => {
         async function loadDashboardData() {
@@ -55,6 +71,7 @@ export default function DashboardClient() {
                 if (walletData) setWallet(walletData);
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
+                showAlert('error', 'Impossible de charger le tableau de bord. Veuillez rafraîchir la page.', 'Erreur');
             } finally {
                 setLoading(false);
             }
@@ -62,6 +79,7 @@ export default function DashboardClient() {
 
         loadDashboardData();
     }, [user]);
+
 
     // Fallback stats when API data is not available
     const displayStats = [
@@ -118,6 +136,24 @@ export default function DashboardClient() {
                 <h1 className={styles.dashTitle}>{t('greeting', { name: user?.full_name?.split(' ')[0] || '' })}</h1>
                 <p className={styles.dashSubtitle}>{t('greeting_subtitle')}</p>
             </header>
+
+            {/* Welcome Bonus Banner */}
+            {showWelcome && (
+                <div className={styles.welcomeBanner}>
+                    <div className={styles.welcomeContent}>
+                        <div className={styles.welcomeIcon}>
+                            <Gift size={24} />
+                        </div>
+                        <div className={styles.welcomeText}>
+                            <h3 className={styles.welcomeTitle}>{t('welcome_bonus.title')}</h3>
+                            <p className={styles.welcomeDesc}>{t('welcome_bonus.desc')}</p>
+                        </div>
+                    </div>
+                    <button onClick={dismissWelcome} className={styles.closeWelcome}>
+                        <X size={20} />
+                    </button>
+                </div>
+            )}
 
             {/* Wallet Quick Awareness */}
             {wallet && wallet.days_remaining !== undefined && (

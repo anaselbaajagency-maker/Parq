@@ -33,7 +33,7 @@ export const routing = defineRouting({
         },
         '/tableau-de-bord': {
             fr: '/tableau-de-bord',
-            ar: '/lawhat-tahakum'
+            ar: '/tableau-de-bord'
         },
         '/login': {
             fr: '/connexion',

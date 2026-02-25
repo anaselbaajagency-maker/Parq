@@ -8,7 +8,10 @@ interface ProfileActionsProps {
     phone: string | null;
 }
 
+import { useTranslations } from 'next-intl';
+
 export default function ProfileActions({ phone }: ProfileActionsProps) {
+    const t = useTranslations('Profile');
     const [isPhoneVisible, setIsPhoneVisible] = useState(false);
 
     const handleWhatsApp = () => {
@@ -30,7 +33,7 @@ export default function ProfileActions({ phone }: ProfileActionsProps) {
                 disabled={!phone}
             >
                 <Phone size={18} />
-                {isPhoneVisible ? (phone || 'Non disponible') : 'Afficher le numéro'}
+                {isPhoneVisible ? (phone || t('not_available')) : t('show_phone')}
             </button>
             <button
                 className={`${styles.secondaryBtn} ${styles.whatsappBtn}`}
@@ -38,7 +41,7 @@ export default function ProfileActions({ phone }: ProfileActionsProps) {
                 disabled={!phone}
             >
                 <MessageSquare size={18} />
-                WhatsApp
+                {t('whatsapp')}
             </button>
         </div>
     );

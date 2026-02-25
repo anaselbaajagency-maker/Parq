@@ -109,7 +109,7 @@ export default function WalletClient() {
             setCouponCode('');
             loadData(); // Refresh balance
         } catch (error: any) {
-            setMessage({ type: 'error', text: error.message || 'Invoice coupon' });
+            setMessage({ type: 'error', text: error.message || t('invoice_coupon_error') });
         } finally {
             setIsSubmitting(false);
         }
@@ -119,7 +119,7 @@ export default function WalletClient() {
         return (
             <div className={styles.loading}>
                 <div className={styles.spinner} />
-                <p>Chargement de votre portefeuille...</p>
+                <p>{t('loading')}</p>
             </div>
         );
     }
@@ -232,7 +232,7 @@ export default function WalletClient() {
                                             onClick={handleTopUpSubmit}
                                             className={styles.submitBtn}
                                         >
-                                            {isSubmitting ? 'Traitement...' : t('submit')}
+                                            {isSubmitting ? t('processing') : t('submit')}
                                         </button>
                                     </div>
                                 </>
@@ -243,7 +243,7 @@ export default function WalletClient() {
                                     </div>
                                     <h3 className="text-2xl font-black mb-2">{t('status.pending')}</h3>
                                     <p className="text-gray-500 font-medium mb-8">
-                                        Référence: <span className="text-black font-bold font-mono bg-gray-100 px-2 py-1 rounded">{topUpResult.reference}</span>
+                                        {t('reference')}: <span className="text-black font-bold font-mono bg-gray-100 px-2 py-1 rounded">{topUpResult.reference}</span>
                                     </p>
 
                                     {selectedMethod === 'bank_transfer' && (
@@ -268,12 +268,12 @@ export default function WalletClient() {
 
                                     {selectedMethod === 'cash_plus' && (
                                         <div className="bg-amber-50 p-8 rounded-2xl text-center space-y-4 border border-amber-100 mb-8">
-                                            <p className="text-sm font-bold text-amber-800 uppercase tracking-wide">Code de paiement Cash Plus</p>
+                                            <p className="text-sm font-bold text-amber-800 uppercase tracking-wide">{t('cash_plus.code_label')}</p>
                                             <div className="text-5xl font-black tracking-widest text-amber-900 font-mono my-4">
                                                 {topUpResult.payment_code || '883-221-09'}
                                             </div>
                                             <p className="text-xs text-amber-700 max-w-[280px] mx-auto leading-relaxed">
-                                                Veuillez présenter ce code dans n'importe quelle agence Cash Plus pour finaliser la recharge.
+                                                {t('cash_plus.instruction')}
                                             </p>
                                         </div>
                                     )}
@@ -289,7 +289,7 @@ export default function WalletClient() {
                                         className={styles.submitBtn}
                                         style={{ background: '#000', color: '#fff' }}
                                     >
-                                        Terminer
+                                        {t('finish')}
                                     </button>
                                 </div>
                             )}
@@ -314,13 +314,13 @@ export default function WalletClient() {
                                     {t('actions.coupon')}
                                 </h3>
                                 <p className={styles.subtitle} style={{ marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
-                                    Saisissez votre code pour recevoir des crédits DH bonus instantanément sur votre compte.
+                                    {t('coupon_instructions')}
                                 </p>
 
                                 <form onSubmit={handleCouponRedeem} className="max-w-md mx-auto">
                                     <input
                                         type="text"
-                                        placeholder="CODE PROMO (Ex: FREE100)"
+                                        placeholder={t('coupon_placeholder')}
                                         value={couponCode}
                                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                                         className={styles.couponInput}
@@ -359,20 +359,20 @@ export default function WalletClient() {
                     <div className={styles.helpCard}>
                         <h4 className={styles.helpTitle}>
                             <HelpCircle size={18} className="text-amber-400" />
-                            Aide & Support
+                            {t('help.title')}
                         </h4>
                         <p className={styles.helpText}>
-                            Besoin d'aide pour recharger votre compte ou comprendre le fonctionnement des crédits ?
+                            {t('help.desc')}
                         </p>
                         <div className="space-y-3">
                             <button className={styles.helpLink}>
-                                Comment recharger mon compte ? <ExternalLink size={12} />
+                                {t('help.how_to')} <ExternalLink size={12} />
                             </button>
                             <button className={styles.helpLink}>
-                                Comprendre la tarification <ExternalLink size={12} />
+                                {t('help.pricing')} <ExternalLink size={12} />
                             </button>
                             <button className={styles.helpLink}>
-                                Contacter le support <ExternalLink size={12} />
+                                {t('help.contact')} <ExternalLink size={12} />
                             </button>
                         </div>
                     </div>
@@ -380,10 +380,10 @@ export default function WalletClient() {
                     <div className={styles.card}>
                         <h4 className="font-bold mb-4 opacity-100 flex items-center gap-2 text-sm">
                             <ShieldCheck size={18} className="text-green-500" />
-                            Paiement sécurisé
+                            {t('payment_secure')}
                         </h4>
                         <p className="text-xs text-gray-500 leading-relaxed font-medium">
-                            Toutes les transactions sont sécurisées et cryptées via le protocole SSL.
+                            {t('payment_secure_desc')}
                         </p>
                         <div className="flex gap-2 mt-4 grayscale opacity-70">
                             <div className="h-6 w-10 bg-gray-200 rounded"></div>

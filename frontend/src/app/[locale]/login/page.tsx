@@ -58,9 +58,21 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (mounted && isAuthenticated) {
-            router.push((user?.role === 'ADMIN' ? '/admin' : '/tableau-de-bord') as any);
+            const searchParams = new URLSearchParams(window.location.search);
+            const redirectUrl = searchParams.get('redirect');
+            const localeFromPath = window.location.pathname.split('/')[1];
+            const locale = (localeFromPath === 'fr' || localeFromPath === 'ar') ? localeFromPath : 'fr';
+
+            if (redirectUrl) {
+                // Robust removal of existing locale prefix if any
+                const cleanRedirectUrl = redirectUrl.replace(/^\/(fr|ar)(\/|$)/, '/');
+                const finalPath = `/${locale}${cleanRedirectUrl.startsWith('/') ? '' : '/'}${cleanRedirectUrl}`;
+                window.location.href = finalPath;
+            } else {
+                window.location.href = `/${locale}${user?.role === 'ADMIN' ? '/admin' : '/tableau-de-bord'}`;
+            }
         }
-    }, [isAuthenticated, mounted, router, user]);
+    }, [isAuthenticated, mounted, user]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -70,7 +82,20 @@ export default function LoginPage() {
         try {
             const data = await apiLogin(formData);
             setAuth(data.user, data.token);
-            // Redirect handled by useEffect
+
+            // Check for redirect param
+            const searchParams = new URLSearchParams(window.location.search);
+            const redirectUrl = searchParams.get('redirect');
+            const localeFromPath = window.location.pathname.split('/')[1];
+            const locale = (localeFromPath === 'fr' || localeFromPath === 'ar') ? localeFromPath : 'fr';
+
+            if (redirectUrl) {
+                // Robust removal of existing locale prefix if any
+                const cleanRedirectUrl = redirectUrl.replace(/^\/(fr|ar)(\/|$)/, '/');
+                const finalPath = `/${locale}${cleanRedirectUrl.startsWith('/') ? '' : '/'}${cleanRedirectUrl}`;
+                window.location.href = finalPath;
+            }
+            // If no redirect param, the useEffect will handle default redirect
         } catch (err: any) {
             // Parse API error message
             let errorMessage = 'Échec de la connexion';

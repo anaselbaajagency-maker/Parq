@@ -8,12 +8,14 @@ import ListingCard from '../../../../components/ListingCard';
 import { routes } from '@/lib/routes';
 import ProfileActions from './ProfileActions';
 import { Link } from '../../../../navigation';
+import { useTranslations } from 'next-intl';
 
 interface ProfileClientProps {
     id: string;
 }
 
 export default function ProfileClient({ id }: ProfileClientProps) {
+    const t = useTranslations('Profile');
     const [profileData, setProfileData] = useState<{ user: any, listings: any[] } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -36,10 +38,16 @@ export default function ProfileClient({ id }: ProfileClientProps) {
 
     }, [id]);
 
-    if (loading) return <div className="p-8 text-center">Chargement...</div>;
-    if (error || !profileData || !profileData.user) return <div className="p-8 text-center">Profil introuvable</div>;
+    if (loading) return <div className="p-8 text-center">{t('loading')}</div>;
+    if (error || !profileData || !profileData.user) return <div className="p-8 text-center">{t('not_found')}</div>;
 
     const { user, listings } = profileData;
+
+    const getRoleLabel = (role: string) => {
+        if (role === 'PROVIDER') return t('provider');
+        if (role === 'ADMIN') return t('admin');
+        return t('user');
+    };
 
     return (
         <div className={styles.container}>
@@ -63,16 +71,16 @@ export default function ProfileClient({ id }: ProfileClientProps) {
                     <div className={styles.userMeta}>
                         <div className={styles.metaItem}>
                             <UserIcon size={18} />
-                            <span>{user.role === 'PROVIDER' ? 'Prestataire' : (user.role === 'ADMIN' ? 'Administrateur' : user.role)}</span>
+                            <span>{getRoleLabel(user.role)}</span>
                         </div>
                         <div className={styles.metaItem}>
                             <Calendar size={18} />
-                            <span>Membre depuis {new Date(user.created_at).getFullYear()}</span>
+                            <span>{t('member_since', { year: new Date(user.created_at).getFullYear() })}</span>
                         </div>
                         {listings.length > 0 && (
                             <div className={styles.metaItem}>
                                 <CheckCircle2 size={18} />
-                                <span>{listings.length} annonces actives</span>
+                                <span>{t('active_listings_count', { count: listings.length })}</span>
                             </div>
                         )}
                     </div>
@@ -82,11 +90,11 @@ export default function ProfileClient({ id }: ProfileClientProps) {
 
             {/* Listings Grid */}
             <div className={styles.listingsSection}>
-                <h2 className={styles.sectionTitle}>Annonces publiées ({listings.length})</h2>
+                <h2 className={styles.sectionTitle}>{t('published_listings', { count: listings.length })}</h2>
 
                 {listings.length === 0 ? (
                     <div className="text-gray-500 py-10 text-center bg-gray-50 rounded-xl">
-                        Aucune annonce active pour le moment.
+                        {t('no_active_listings')}
                     </div>
                 ) : (
                     <div className={styles.listingsGrid}>

@@ -27,6 +27,7 @@ export default function CitiesClient() {
             setCities(data);
         } catch (error) {
             console.error('Failed to load cities', error);
+            showAlert('error', 'Impossible de charger les villes. Veuillez réessayer.', 'Erreur');
         } finally {
             setLoading(false);
         }

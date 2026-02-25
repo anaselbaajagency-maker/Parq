@@ -53,7 +53,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
         try {
             const errorJson = JSON.parse(errorBody);
             if (errorJson.message) {
-                errorMessage = errorJson.message;
+                errorMessage = `API Error ${res.status}: ${errorJson.message}`;
             }
         } catch (e) {
             // Keep original parsing if not valid JSON
@@ -122,7 +122,12 @@ export const api = {
         },
 
         getOne: async (slugOrId: string | number) => {
-            return fetchAPI<Listing>(`listings/${slugOrId}`, { cache: 'no-store' });
+            const token = getAuthToken();
+            const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+            return fetchAPI<Listing>(`listings/${slugOrId}`, {
+                cache: 'no-store',
+                headers
+            });
         },
 
         create: async (data: Partial<Listing> | FormData, token?: string) => {
@@ -161,10 +166,15 @@ export const api = {
         },
 
         getByCategory: async (categorySlug: string, limit?: number, citySlug?: string) => {
+            const token = getAuthToken();
+            const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
             let url = `listings/category/${categorySlug}?`;
             if (limit) url += `limit=${limit}&`;
             if (citySlug) url += `city=${citySlug}&`;
-            const response = await fetchAPI<PaginatedResponse<Listing> | Listing[]>(url, { cache: 'no-store' });
+            const response = await fetchAPI<PaginatedResponse<Listing> | Listing[]>(url, {
+                cache: 'no-store',
+                headers
+            });
             // Handle paginated response from backend
             return Array.isArray(response) ? response : (response.data || []);
         },

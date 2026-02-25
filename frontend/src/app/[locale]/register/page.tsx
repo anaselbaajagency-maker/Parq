@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
 import { apiRegister } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { UserPlus, Mail, Lock, User, Phone, Loader2 } from 'lucide-react';
-import { Link } from '../../../navigation';
+import { Link, useRouter } from '../../../navigation';
 import { useTranslations } from 'next-intl';
 import { useGoogleLogin } from '@react-oauth/google';
 import styles from '../login/auth.module.css';
@@ -14,6 +14,8 @@ export default function RegisterPage() {
     const t = useTranslations('Auth');
     const router = useRouter();
     const setAuth = useAuthStore(state => state.setAuth);
+    const { isAuthenticated, user } = useAuthStore();
+    const [mounted, setMounted] = useState(false);
 
     const [formData, setFormData] = useState({
         full_name: '',
@@ -25,6 +27,28 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (mounted && isAuthenticated) {
+            const searchParams = new URLSearchParams(window.location.search);
+            const redirectUrl = searchParams.get('redirect');
+            const localeFromPath = window.location.pathname.split('/')[1];
+            const locale = (localeFromPath === 'fr' || localeFromPath === 'ar') ? localeFromPath : 'fr';
+
+            if (redirectUrl) {
+                // Robust removal of existing locale prefix if any
+                const cleanRedirectUrl = redirectUrl.replace(/^\/(fr|ar)(\/|$)/, '/');
+                const finalPath = `/${locale}${cleanRedirectUrl.startsWith('/') ? '' : '/'}${cleanRedirectUrl}`;
+                window.location.href = finalPath;
+            } else {
+                window.location.href = `/${locale}/tableau-de-bord`;
+            }
+        }
+    }, [isAuthenticated, mounted, user]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -33,7 +57,20 @@ export default function RegisterPage() {
         try {
             const data = await apiRegister(formData);
             setAuth(data.user, data.token);
-            router.push('/dashboard');
+
+            const searchParams = new URLSearchParams(window.location.search);
+            const redirectUrl = searchParams.get('redirect');
+            const localeFromPath = window.location.pathname.split('/')[1];
+            const locale = (localeFromPath === 'fr' || localeFromPath === 'ar') ? localeFromPath : 'fr';
+
+            if (redirectUrl) {
+                // Robust removal of existing locale prefix if any
+                const cleanRedirectUrl = redirectUrl.replace(/^\/(fr|ar)(\/|$)/, '/');
+                const finalPath = `/${locale}${cleanRedirectUrl.startsWith('/') ? '' : '/'}${cleanRedirectUrl}`;
+                window.location.href = finalPath;
+            } else {
+                window.location.href = `/${locale}/tableau-de-bord`;
+            }
         } catch (err: any) {
             setError(err.message || t('error') || 'Registration failed.');
         } finally {
@@ -64,7 +101,19 @@ export default function RegisterPage() {
 
                 setAuth(data.user, data.token);
                 // Redirect handled by success logic in handleSubmit or useEffect
-                router.push('/dashboard');
+                const searchParams = new URLSearchParams(window.location.search);
+                const redirectUrl = searchParams.get('redirect');
+                const localeFromPath = window.location.pathname.split('/')[1];
+                const locale = (localeFromPath === 'fr' || localeFromPath === 'ar') ? localeFromPath : 'fr';
+
+                if (redirectUrl) {
+                    // Robust removal of existing locale prefix if any
+                    const cleanRedirectUrl = redirectUrl.replace(/^\/(fr|ar)(\/|$)/, '/');
+                    const finalPath = `/${locale}${cleanRedirectUrl.startsWith('/') ? '' : '/'}${cleanRedirectUrl}`;
+                    window.location.href = finalPath;
+                } else {
+                    window.location.href = `/${locale}/tableau-de-bord`;
+                }
             } catch (err: any) {
                 console.error('Google Sign Up Error', err);
                 setError(err.message || 'Google Sign Up failed');

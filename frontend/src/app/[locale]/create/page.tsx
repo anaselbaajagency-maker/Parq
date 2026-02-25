@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+
 import { useTranslations, useLocale } from 'next-intl';
 import { fetchCategories, fetchCities, createListing, Category, City, api } from '@/lib/api';
 import { WalletBalance } from '@/types/wallet';
@@ -9,7 +9,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { X, UploadCloud, Grid3X3, MapPin } from 'lucide-react';
 import styles from './create.module.css';
 import LowBalanceAlert from '@/components/wallet/LowBalanceAlert';
-import { Link } from '@/navigation';
+import { Link, useRouter } from '@/navigation';
 
 export default function CreateListingPage() {
     const t = useTranslations('Header.create_listing');
@@ -33,11 +33,14 @@ export default function CreateListingPage() {
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [heroImage, setHeroImage] = useState<File | null>(null);
     const [heroPreview, setHeroPreview] = useState<string | null>(null);
+    const [error, setError] = useState('');
 
     // Form State
     const [formData, setFormData] = useState({
         title: '',
+        title_ar: '',
         description: '',
+        description_ar: '',
         price: '',
         price_unit: 'DH/day',
         type: 'rent',
@@ -49,7 +52,7 @@ export default function CreateListingPage() {
     // Redirect to login if not authenticated
     useEffect(() => {
         if (!isAuthenticated) {
-            router.push(`/${locale}/login`);
+            router.push('/login');
         }
     }, [isAuthenticated, router, locale]);
 
@@ -131,9 +134,24 @@ export default function CreateListingPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
 
         if (!heroImage) {
-            alert(t('label_image') + " (Hero) " + t('required_field'));
+            setError(t('label_image') + " (Hero) " + t('required_field'));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        // Validate File Sizes (Client-side check to prevent PostTooLargeException)
+        const MAX_TOTAL_SIZE_MB = 10; // Increased to match backend
+        const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
+
+        let totalSize = heroImage.size;
+        selectedFiles.forEach(file => totalSize += file.size);
+
+        if (totalSize > MAX_TOTAL_SIZE_BYTES) {
+            setError(`La taille totale des images (${(totalSize / 1024 / 1024).toFixed(2)} MB) dépasse la limite de ${MAX_TOTAL_SIZE_MB} MB. Veuillez réduire la taille ou le nombre d'images.`);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -141,7 +159,9 @@ export default function CreateListingPage() {
         try {
             const data = new FormData();
             data.append('title', formData.title);
+            data.append('title_ar', formData.title_ar);
             data.append('description', formData.description);
+            data.append('description_ar', formData.description_ar);
             data.append('price', formData.price);
             data.append('price_unit', formData.price_unit);
             data.append('type', formData.type);
@@ -156,13 +176,19 @@ export default function CreateListingPage() {
                 data.append('images[]', file);
             });
 
-            await createListing(data);
+            const newListing = await createListing(data);
 
             alert(t('success_pending'));
-            router.push('/tableau-de-bord/annonces');
-        } catch (error) {
-            alert(t('error'));
-            console.error(error);
+            if (newListing && newListing.id) {
+                // @ts-ignore
+                router.push(`/tableau-de-bord/annonces/edit/${newListing.id}`);
+            } else {
+                router.push('/tableau-de-bord/annonces');
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError(err.message || t('error'));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setLoading(false);
         }
@@ -177,6 +203,25 @@ export default function CreateListingPage() {
                 <div className={styles.header}>
                     <h1 className={styles.title}>{t('title')}</h1>
                     <p className={styles.subtitle}>{tCommon('list_item')}</p>
+                    {/* DEV ONLY: Demo Fill Button */}
+                    <button
+                        type="button"
+                        onClick={() => setFormData({
+                            title: 'Tracteur Caterpillar D6',
+                            title_ar: 'جرافة كاتربيلر D6',
+                            description: 'Tracteur en excellent état, peu servi. Idéal pour travaux agricoles.',
+                            description_ar: 'جرافة في حالة ممتازة، مسخ دمة قليلاً. مثالية للأعمال الزراعية.',
+                            price: '1500',
+                            price_unit: 'DH/jour',
+                            type: 'rent',
+                            category_id: categories.length > 0 ? categories[0].id.toString() : '',
+                            city_id: cities.length > 0 ? cities[0].id.toString() : '',
+                            is_available: true
+                        })}
+                        className="mt-2 text-xs text-gray-400 underline hover:text-gray-600"
+                    >
+                        [DEV] Remplir Demo
+                    </button>
                 </div>
 
                 {wallet && wallet.days_remaining <= 5 && (
@@ -190,6 +235,12 @@ export default function CreateListingPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className={styles.form}>
+                    {error && (
+                        <div className={styles.errorAlert}>
+                            {error}
+                        </div>
+                    )}
+
                     {/* Basic Info */}
                     <div className={styles.formGroup}>
                         <label className={styles.label}>{t('label_title')}</label>
@@ -201,6 +252,19 @@ export default function CreateListingPage() {
                             required
                             className={styles.input}
                             placeholder={t('placeholder_title')}
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label className={styles.label}>{t('label_title_ar')}</label>
+                        <input
+                            type="text"
+                            name="title_ar"
+                            value={formData.title_ar}
+                            onChange={handleChange}
+                            className={styles.input}
+                            placeholder={t('placeholder_title_ar')}
+                            dir="rtl"
                         />
                     </div>
 
@@ -271,6 +335,18 @@ export default function CreateListingPage() {
                         />
                     </div>
 
+                    <div className={styles.formGroup}>
+                        <label className={styles.label}>{t('label_description_ar')}</label>
+                        <textarea
+                            name="description_ar"
+                            value={formData.description_ar}
+                            onChange={handleChange}
+                            rows={4}
+                            className={styles.textarea}
+                            dir="rtl"
+                        />
+                    </div>
+
                     {/* Hero Image Upload */}
                     <div className={styles.formGroup}>
                         <label className={styles.label}>Image Principale (Hero) {t('required_field')}</label>
@@ -292,7 +368,7 @@ export default function CreateListingPage() {
                                             setHeroImage(file);
                                             setHeroPreview(URL.createObjectURL(file));
                                         }
-                                    }} className={styles.hiddenInput} required />
+                                    }} style={{ display: 'none' }} required />
                                 </label>
                             )}
                         </div>
@@ -300,7 +376,7 @@ export default function CreateListingPage() {
 
                     {/* Additional Images Upload */}
                     <div className={styles.formGroup}>
-                        <label className={styles.label}>{t('label_image')}s (Galerie)</label>
+                        <label className={styles.label}>{t('label_image')} (Galerie)</label>
 
                         <div className={styles.imagesGrid}>
                             {/* New images */}
@@ -327,7 +403,7 @@ export default function CreateListingPage() {
                                         accept="image/*"
                                         multiple
                                         onChange={handleFileSelect}
-                                        className={styles.hiddenInput}
+                                        style={{ display: 'none' }}
                                         disabled={selectedFiles.length >= 5}
                                     />
                                 </label>

@@ -271,6 +271,71 @@
 }
 
 /* Card Content */
+/* Card Meta & Stats */
+.cardMeta {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.statsRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.statItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #666;
+    background: #f8f9fa;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.statIcon {
+    opacity: 0.7;
+}
+
+.spentBadge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff7ed;
+    color: #c2410c;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #ffedd5;
+}
+
+.spentLabel {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    opacity: 0.8;
+    letter-spacing: 0.05em;
+}
+
+.cardPrice {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.priceUnit {
+    font-size: 0.85rem;
+    color: #888;
+    font-weight: 400;
+}
+
 .cardContent {
     padding: 20px;
 }

@@ -5,13 +5,16 @@ import { Link, usePathname } from '../../../navigation';
 import {
     LayoutDashboard, Package, MessageSquare,
     Settings, LogOut, Bell, Search,
-    Plus, User as UserIcon, ChevronRight, Wallet
+    Plus, User as UserIcon, ChevronRight, Wallet, Globe
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 import { useRouter } from '../../../navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import styles from './dashboard.module.css';
+
+import { useRef } from 'react';
+import { useParams } from 'next/navigation';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const t = useTranslations('Auth');
@@ -20,10 +23,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const pathname = usePathname();
     const { logout, user, isAuthenticated } = useAuthStore();
     const router = useRouter();
+    const params = useParams();
+    const locale = (Array.isArray(params?.locale) ? params.locale[0] : params?.locale) || 'fr';
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [balance, setBalance] = useState<number | null>(null);
+
+    // Lang Menu State
+    const [isLangMenu, setIsLangMenu] = useState(false);
+    const langMenuRef = useRef<HTMLDivElement>(null);
+
+    const switchLocale = (newLocale: string) => {
+        // @ts-ignore -- ignoring strict route typing for locale switch
+        router.replace(pathname, { locale: newLocale });
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
+                setIsLangMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         setMounted(true);
@@ -94,7 +118,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     href: '/tableau-de-bord/wallet' as const,
                     label: tw('title'),
                     icon: Wallet,
-                    badge: balance !== null ? `${balance.toLocaleString()} DH` : null
                 },
             ]
         },
@@ -190,6 +213,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 {balance !== null ? balance.toLocaleString() : '---'} <span className="text-xs font-bold text-gray-400">DH</span>
                             </span>
                         </Link> */}
+
+                        <div
+                            className={styles.langSwitcher}
+                            onClick={() => setIsLangMenu(!isLangMenu)}
+                            ref={langMenuRef}
+                        >
+                            <button className={styles.langButton}>
+                                <Globe size={18} className={styles.langIcon} />
+                                <span className={styles.langCode}>{(locale as string).toUpperCase()}</span>
+                            </button>
+
+                            {isLangMenu && (
+                                <div className={styles.langDropdown}>
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); switchLocale('fr'); setIsLangMenu(false); }}
+                                        className={`${styles.langOption} ${locale === 'fr' ? styles.activeLang : ''}`}
+                                    >
+                                        <Globe size={16} />
+                                        <span className="font-bold">FR</span>
+                                        <span>Français</span>
+                                    </div>
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); switchLocale('ar'); setIsLangMenu(false); }}
+                                        className={`${styles.langOption} ${locale === 'ar' ? styles.activeLang : ''}`}
+                                    >
+                                        <Globe size={16} />
+                                        <span className="font-bold">AR</span>
+                                        <span>العربية</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         <button className={styles.actionIcon}>
                             <Search size={20} />

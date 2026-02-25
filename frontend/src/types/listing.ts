@@ -68,6 +68,8 @@ export interface ListingMachinery {
     tonnage?: string;
     year?: number;
     with_driver?: boolean;
+    power?: string;
+    condition?: string;
 }
 
 export interface ListingTransport {
@@ -147,8 +149,13 @@ export interface Listing {
     model?: string;
     year?: number;
     fuel?: string;
+    fuel_type?: string;
     power?: string;
     condition?: string;
+    gearbox?: string;
+    seats?: number;
+    tonnage?: string;
+    with_driver?: boolean;
     category_name?: string;
     category_slug?: string;
 }
