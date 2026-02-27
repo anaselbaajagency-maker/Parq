@@ -51,6 +51,11 @@ class UpdateListingRequest extends FormRequest
             'usage_type' => 'nullable|string',
             'license_type' => 'nullable|string',
             'experience_years' => 'nullable|integer',
+            'image_hero' => 'nullable|image|max:5120',
+            'images' => 'nullable|array|max:2',
+            'images.*' => 'image|max:5120',
+            'existing_images' => 'nullable|array',
+            'existing_images.*' => 'string',
         ];
     }
 }

@@ -73,17 +73,8 @@ class ListingService
             }
 
             // Handle Images (Sync: Replace all or Add/Remove specific? For API assume replace list or specific endpoint)
-            // Ideally we separate image management, but for basic Update:
-            if (isset($data['images'])) {
-                // Logic depends on frontend implementation.
-                // For simplicity, we assume we receive a list of new/existing images or handle separately.
-                // Let's assume specific endpoint for images or append logic.
-                // Here implementation is tricky without clear requirements.
-                // I will add a separate method `syncImages` if needed,
-                // or assume `images` contains full list of valid image paths.
-
-                // For now, let's skip full image sync in update unless specified, to avoid accidental deletion.
-                // Use separate add/remove endpoints usually better.
+            if ($listing->id) {
+                $this->syncImages($listing, $data);
             }
 
             return $listing->fresh(['images', 'car', 'machinery', 'transport', 'driver']);
@@ -159,5 +150,54 @@ class ListingService
         $count = Listing::where('slug', 'LIKE', "{$slug}%")->count();
 
         return $count ? "{$slug}-{$count}" : $slug;
+    }
+
+    protected function syncImages(Listing $listing, array $data)
+    {
+        $currentImageUrls = $data['existing_images'] ?? [];
+        $heroUrl = $listing->image_hero;
+
+        // 1. Handle New Hero Image
+        if (isset($data['image_hero'])) {
+            $file = $data['image_hero'];
+            $path = $file->store('listings', 'public');
+            $heroUrl = asset('storage/' . $path);
+            $listing->image_hero = $heroUrl;
+            // Also ensure it's in the images list
+            if (!in_array($heroUrl, $currentImageUrls)) {
+                array_unshift($currentImageUrls, $heroUrl);
+            }
+        }
+
+        // 2. Handle New Gallery Images
+        if (isset($data['images']) && is_array($data['images'])) {
+            foreach ($data['images'] as $file) {
+                if ($file instanceof \Illuminate\Http\UploadedFile) {
+                    $path = $file->store('listings', 'public');
+                    $currentImageUrls[] = asset('storage/' . $path);
+                }
+            }
+        }
+
+        // 3. Update Listing JSON column
+        $listing->images = $currentImageUrls;
+        if (isset($heroUrl)) {
+            $listing->image_hero = $heroUrl;
+        }
+        $listing->save();
+
+        // 4. Sync with ListingImages table
+        // Delete images that are no longer in the list
+        ListingImage::where('listing_id', $listing->id)
+            ->whereNotIn('image_path', $currentImageUrls)
+            ->delete();
+
+        // Add new images to the table
+        foreach ($currentImageUrls as $index => $path) {
+            ListingImage::updateOrCreate(
+                ['listing_id' => $listing->id, 'image_path' => $path],
+                ['is_main' => ($path === $heroUrl), 'sort_order' => $index]
+            );
+        }
     }
 }

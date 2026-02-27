@@ -22,7 +22,7 @@ class Listing extends Model
         'price_type',
         'latitude',
         'longitude',
-        // 'images', // Deprecated JSON column
+        'images', // JSON column
         'image_hero',
         'is_available',
         'status',
@@ -53,6 +53,11 @@ class Listing extends Model
         'fuel',
         'power',
         'condition',
+        'gearbox',
+        'seats',
+        'tonnage',
+        'with_driver',
+        'features',
     ];
 
     public function getMainImageAttribute()
@@ -188,5 +193,43 @@ class Listing extends Model
     public function getCapacityAttribute()
     {
         return $this->transport?->capacity;
+    }
+
+    public function getTonnageAttribute()
+    {
+        return $this->machinery?->tonnage;
+    }
+
+    public function getWithDriverAttribute()
+    {
+        return $this->machinery?->with_driver;
+    }
+
+    public function getFeaturesAttribute()
+    {
+        $features = [];
+
+        if ($this->transport?->air_conditioning) {
+            $features[] = 'air_conditioning';
+        }
+
+        if ($this->machinery?->with_driver) {
+            $features[] = 'with_driver';
+        }
+
+        if ($this->driver?->is_available) {
+            $features[] = 'driver_available';
+        }
+
+        // Add more synthetic features if needed based on other attributes
+        if ($this->car?->gearbox === 'automatic') {
+            $features[] = 'automatic_gearbox';
+        }
+
+        if ($this->car?->fuel_type === 'hybrid' || $this->car?->fuel_type === 'electric') {
+            $features[] = 'eco_friendly';
+        }
+
+        return $features;
     }
 }

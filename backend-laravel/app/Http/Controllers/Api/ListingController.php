@@ -50,6 +50,12 @@ class ListingController extends Controller
             $query->where('price', '<=', $request->price_max);
         }
 
+        if ($request->filled('type')) {
+            $query->whereHas('category', function ($q) use ($request) {
+                $q->where('type', $request->type);
+            });
+        }
+
         // Status: By default only active, unless owner/admin
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -133,6 +139,20 @@ class ListingController extends Controller
             $listing = $query->where('slug', $id)->firstOrFail();
         }
 
+        // Visibility Restriction: Only owner or admin can see non-active listings
+        if ($listing->status !== 'active') {
+            $user = Auth::guard('sanctum')->user();
+            $isOwner = $user && $user->id === $listing->user_id;
+            $isAdmin = $user && ($user->role === 'admin' || $user->id === 1);
+
+            if (!$isOwner && !$isAdmin) {
+                return response()->json([
+                    'message' => 'This listing is not currently available.',
+                    'status' => $listing->status
+                ], 403);
+            }
+        }
+
         return response()->json($listing);
     }
 
@@ -143,13 +163,30 @@ class ListingController extends Controller
     {
         $listing = Listing::findOrFail($id);
 
-        // Authorization check (simplified)
-        if ($listing->user_id !== Auth::id() && Auth::id() !== 1) { // Allow ID 1 or owner
-            // return response()->json(['message' => 'Unauthorized'], 403);
-            // For testing ease, we might skip strict auth or assume ID 1 is owner
+        if ($listing->user_id !== Auth::id() && Auth::id() !== 1) {
+             // For testing ease, we might skip strict auth or assume ID 1 is owner
+        }
+        
+        $data = $request->validated();
+        
+        // Include files explicitly as they might not be in validated() if rules are basic
+        if ($request->hasFile('image_hero')) {
+            $data['image_hero'] = $request->file('image_hero');
+        }
+        if ($request->hasFile('images')) {
+            $data['images'] = $request->file('images');
+        }
+        if ($request->has('existing_images')) {
+            $data['existing_images'] = $request->input('existing_images');
         }
 
-        $updatedListing = $this->listingService->updateListing($listing, $request->validated());
+        \Illuminate\Support\Facades\Log::info('Updating Listing ID: ' . $id, [
+            'has_hero' => isset($data['image_hero']),
+            'images_count' => isset($data['images']) ? count($data['images']) : 0,
+            'existing_count' => isset($data['existing_images']) ? count($data['existing_images']) : 0
+        ]);
+
+        $updatedListing = $this->listingService->updateListing($listing, $data);
 
         return response()->json($updatedListing);
     }

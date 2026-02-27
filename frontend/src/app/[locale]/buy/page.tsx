@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { Link } from '../../../navigation';
 import CategoryBar from '@/components/CategoryBar';
 import ListingCard from '../../../components/ListingCard';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { fetchListings, fetchCities, Listing as ApiListing, City } from '@/lib/api';
 import { routes } from '@/lib/routes';
@@ -35,8 +35,10 @@ export default function BuyPage() {
     const [showFilters, setShowFilters] = useState(false);
 
     // Pagination
-    const ITEMS_PER_PAGE = 12;
-    const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+    const ITEMS_PER_PAGE = 20;
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     // Filter states
     const [selectedCity, setSelectedCity] = useState<string>('');
@@ -48,14 +50,18 @@ export default function BuyPage() {
     useEffect(() => {
         async function loadData() {
             try {
-                const [listingsData, citiesData] = await Promise.all([
-                    fetchListings(),
+                // Fetch listings filtered by type=buy
+                const promises: Promise<any>[] = [
+                    fetchListings({ type: 'buy', limit: ITEMS_PER_PAGE, page: 1 }),
                     fetchCities(true) // activeOnly
-                ]);
-                const buyItems = listingsData.filter((l: any) => l.type === 'buy');
+                ];
+                const [listingsData, citiesData] = await Promise.all(promises);
+                const buyItems = Array.isArray(listingsData) ? listingsData : (listingsData?.data || []);
                 setListings(buyItems);
                 setFilteredListings(buyItems);
                 setCities(citiesData);
+                setPage(1);
+                setHasMore(buyItems.length >= ITEMS_PER_PAGE);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -63,7 +69,53 @@ export default function BuyPage() {
             }
         }
         loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const loadMore = async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const nextPage = page + 1;
+            const listingsData: any = await fetchListings({ type: 'buy', limit: ITEMS_PER_PAGE, page: nextPage });
+            const newListings: ApiListing[] = Array.isArray(listingsData) ? listingsData : (listingsData?.data || []);
+
+            if (newListings && newListings.length > 0) {
+                setListings(prev => {
+                    const existingIds = new Set(prev.map(l => l.id));
+                    const uniqueNew = newListings.filter(l => !existingIds.has(l.id));
+                    return [...prev, ...uniqueNew];
+                });
+                setPage(nextPage);
+                setHasMore(newListings.length >= ITEMS_PER_PAGE);
+            } else {
+                setHasMore(false);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    const loadMoreRef = useRef(loadMore);
+    useEffect(() => {
+        loadMoreRef.current = loadMore;
+    }, [loadMore]);
+
+    const observer = useRef<IntersectionObserver | null>(null);
+    const lastElementRef = useCallback((node: HTMLAnchorElement | null) => {
+        if (loading || loadingMore) return;
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                loadMoreRef.current();
+            }
+        });
+
+        if (node) observer.current.observe(node);
+    }, [loading, loadingMore, hasMore]);
 
     const getCityName = (city: City) => {
         if (lang === 'ar' && city.name_ar) return city.name_ar;
@@ -100,7 +152,6 @@ export default function BuyPage() {
 
         setFilteredListings(result);
         setActiveFiltersCount(count);
-        setVisibleCount(ITEMS_PER_PAGE);
     }, [listings, selectedCity, selectedPriceRange, availableOnly, searchQuery]);
 
     const clearFilters = () => {
@@ -109,13 +160,6 @@ export default function BuyPage() {
         setAvailableOnly(false);
         setSearchQuery('');
     };
-
-    const loadMore = () => {
-        setVisibleCount(prev => prev + ITEMS_PER_PAGE);
-    };
-
-    const visibleListings = filteredListings.slice(0, visibleCount);
-    const hasMore = visibleCount < filteredListings.length;
 
     if (loading) {
         return (
@@ -225,7 +269,7 @@ export default function BuyPage() {
             {/* Listings Grid */}
             <div className={styles.listingsSection}>
                 <div className={styles.listingsGrid}>
-                    {visibleListings.map((item) => {
+                    {filteredListings.map((item, index) => {
                         const city = cities.find(c => c.id === (item as any).city_id);
                         const location = city ? getCityName(city) : (item.city?.name || 'Maroc');
 
@@ -235,28 +279,32 @@ export default function BuyPage() {
                             location
                         };
 
+                        const isLast = index === filteredListings.length - 1;
+
                         return (
-                            <Link key={item.id} href={routes.listing(item.slug || item.id.toString()) as any} className={styles.cardLink}>
+                            <Link
+                                ref={isLast ? (lastElementRef as any) : undefined}
+                                key={item.id}
+                                href={routes.listing(item.slug || item.id.toString()) as any}
+                                className={styles.cardLink}
+                            >
                                 <ListingCard item={enhancedItem as any} />
                             </Link>
                         );
                     })}
                 </div>
 
+                {loadingMore && (
+                    <div style={{ textAlign: 'center', padding: '2rem 0', gridColumn: '1 / -1' }}>
+                        <div className={styles.loadingSpinner} style={{ display: 'inline-block', width: '30px', height: '30px', border: '3px solid rgba(0,0,0,0.1)', borderTopColor: '#FF385C', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                    </div>
+                )}
+
                 {filteredListings.length === 0 && (
                     <div className={styles.emptyState}>
                         <p>{t('no_listings_found_filters')}</p>
                         <button className={styles.clearFiltersBtn} onClick={clearFilters}>
                             {t('clear_all_filters')}
-                        </button>
-                    </div>
-                )}
-
-                {/* Load More Button */}
-                {hasMore && filteredListings.length > 0 && (
-                    <div className={styles.loadMoreContainer}>
-                        <button className={styles.loadMoreBtn} onClick={loadMore}>
-                            {t('show_more')} ({filteredListings.length - visibleCount})
                         </button>
                     </div>
                 )}

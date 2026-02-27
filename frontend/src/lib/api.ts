@@ -165,10 +165,10 @@ export const api = {
             });
         },
 
-        getByCategory: async (categorySlug: string, limit?: number, citySlug?: string) => {
+        getByCategory: async (categorySlug: string, limit?: number, citySlug?: string, page: number = 1) => {
             const token = getAuthToken();
             const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
-            let url = `listings/category/${categorySlug}?`;
+            let url = `listings/category/${categorySlug}?page=${page}&`;
             if (limit) url += `limit=${limit}&`;
             if (citySlug) url += `city=${citySlug}&`;
             const response = await fetchAPI<PaginatedResponse<Listing> | Listing[]>(url, {
@@ -342,8 +342,8 @@ export async function fetchListingBySlug(slug: string) {
     return api.listings.getOne(slug);
 }
 
-export async function fetchListingsByCategory(categoryId: string | number, limit?: number, citySlug?: string) {
-    return api.listings.getByCategory(String(categoryId), limit, citySlug);
+export async function fetchListingsByCategory(categoryId: string | number, limit?: number, citySlug?: string, page: number = 1) {
+    return api.listings.getByCategory(String(categoryId), limit, citySlug, page);
 }
 
 export async function createListing(data: FormData | Partial<Listing>, token?: string) {

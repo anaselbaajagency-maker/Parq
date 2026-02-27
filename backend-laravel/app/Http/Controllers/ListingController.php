@@ -97,7 +97,7 @@ class ListingController extends Controller implements HasMiddleware
             'description' => 'required|string',
             'attributes' => 'nullable|array',
             'images' => 'nullable|array',
-            'images.*' => 'image|max:2048',
+            'images.*' => 'image|max:10240', // Increased to 10MB
             'type' => 'nullable|string', // rent/buy
 
             // Technical Specs (Optional based on category)
@@ -132,6 +132,11 @@ class ListingController extends Controller implements HasMiddleware
         $validated['user_id'] = auth()->id(); // Strict: User must be logged in (handled by middleware)
         $validated['status'] = 'active'; // Default active
         $validated['images'] = $imagePaths;
+
+        // Set image_hero to the first image if available
+        if (!empty($imagePaths)) {
+            $validated['image_hero'] = $imagePaths[0];
+        }
 
         $listing = Listing::create($validated);
 
@@ -205,9 +210,79 @@ class ListingController extends Controller implements HasMiddleware
     public function update(Request $request, Listing $listing)
     {
         $this->authorize('update', $listing);
-        $listing->update($request->all());
 
-        return $listing;
+        $validated = $request->except(['images', 'image_hero', 'existing_images']);
+
+        // Handle Image Hero
+        if ($request->hasFile('image_hero')) {
+            $path = $request->file('image_hero')->store('listings', 'public');
+            $validated['image_hero'] = asset('storage/' . $path);
+        }
+
+        // Handle Gallery Images (Merge Existing + New)
+        $currentImages = $request->input('existing_images', []);
+
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $file) {
+                $path = $file->store('listings', 'public');
+                $currentImages[] = asset('storage/' . $path);
+            }
+        }
+        
+        // Ensure hero image is also in the main images list if it was updated/uploaded (optional per business logic, but safe)
+        if (isset($validated['image_hero']) && !in_array($validated['image_hero'], $currentImages)) {
+             array_unshift($currentImages, $validated['image_hero']);
+        }
+
+        $validated['images'] = $currentImages;
+
+        // Validate images if new ones are uploaded
+        if ($request->hasFile('images')) {
+            $request->validate([
+                'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:10240',
+            ]);
+        }
+
+        $listing->update($validated);
+
+        // Update related models
+        if ($request->hasAny(['fuel_type', 'gearbox', 'seats'])) {
+            $listing->car()->updateOrCreate([], [
+                'fuel_type' => $request->fuel_type,
+                'gearbox' => $request->gearbox,
+                'seats' => $request->seats,
+            ]);
+        }
+
+        if ($request->hasAny(['brand', 'model', 'tonnage', 'year', 'power', 'condition', 'with_driver'])) {
+            $listing->machinery()->updateOrCreate([], [
+                'brand' => $request->brand,
+                'model' => $request->model,
+                'tonnage' => $request->tonnage,
+                'year' => $request->year,
+                'power' => $request->power,
+                'condition' => $request->condition,
+                'with_driver' => $request->boolean('with_driver'),
+            ]);
+        }
+
+        if ($request->hasAny(['capacity', 'usage_type', 'air_conditioning'])) {
+            $listing->transport()->updateOrCreate([], [
+                'capacity' => $request->capacity,
+                'air_conditioning' => $request->boolean('air_conditioning'),
+                'usage_type' => $request->usage_type,
+            ]);
+        }
+
+        if ($request->hasAny(['license_type', 'experience_years', 'is_available'])) {
+            $listing->driver()->updateOrCreate([], [
+                'license_type' => $request->license_type,
+                'experience_years' => $request->experience_years,
+                'is_available' => $request->boolean('is_available'),
+            ]);
+        }
+
+        return $listing->load(['car', 'machinery', 'transport', 'driver']);
     }
 
     /**

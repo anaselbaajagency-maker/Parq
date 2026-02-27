@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Category } from '@/lib/api';
 import CategoryBar from '../../../../components/CategoryBar';
@@ -36,6 +36,12 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
     const [cities, setCities] = useState<City[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Pagination
+    const ITEMS_PER_PAGE = 20;
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+
     // Filter states
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [selectedPriceRange, setSelectedPriceRange] = useState(0);
@@ -67,7 +73,7 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
         async function loadData() {
             try {
                 const promises: Promise<any>[] = [
-                    fetchListingsByCategory(categoryId, 50, citySlug),
+                    fetchListingsByCategory(categoryId, ITEMS_PER_PAGE, citySlug, 1),
                     fetchCities()
                 ];
 
@@ -76,8 +82,8 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
                 }
 
                 const results = await Promise.all(promises);
-                const categoryListings = results[0];
-                const citiesData = results[1];
+                const categoryListings = results[0] || [];
+                const citiesData = results[1] || [];
 
                 if (!currentCategory && results[2]) {
                     const cats = results[2] as Category[];
@@ -85,11 +91,11 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
                     if (found) setCurrentCategory(found);
                 }
 
-                // Filter for 'buy' type
-                const buyListings = categoryListings.filter((l: any) => l.type === 'buy');
-                setListings(buyListings);
-                setFilteredListings(buyListings);
+                setListings(categoryListings);
+                setFilteredListings(categoryListings);
                 setCities(citiesData);
+                setPage(1);
+                setHasMore(categoryListings.length >= ITEMS_PER_PAGE);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -97,9 +103,52 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
             }
         }
         loadData();
-    }, [categoryId, citySlug, currentCategory]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoryId, citySlug]);
 
+    const loadMore = async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const nextPage = page + 1;
+            const newListings: ApiListing[] = await fetchListingsByCategory(categoryId, ITEMS_PER_PAGE, citySlug, nextPage);
 
+            if (newListings && newListings.length > 0) {
+                setListings(prev => {
+                    const existingIds = new Set(prev.map(l => l.id));
+                    const uniqueNew = newListings.filter(l => !existingIds.has(l.id));
+                    return [...prev, ...uniqueNew];
+                });
+                setPage(nextPage);
+                setHasMore(newListings.length >= ITEMS_PER_PAGE);
+            } else {
+                setHasMore(false);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    const loadMoreRef = useRef(loadMore);
+    useEffect(() => {
+        loadMoreRef.current = loadMore;
+    }, [loadMore]);
+
+    const observer = useRef<IntersectionObserver | null>(null);
+    const lastElementRef = useCallback((node: HTMLAnchorElement | null) => {
+        if (loading || loadingMore) return;
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                loadMoreRef.current();
+            }
+        });
+
+        if (node) observer.current.observe(node);
+    }, [loading, loadingMore, hasMore]);
 
     // Apply filters
     useEffect(() => {
@@ -253,28 +302,36 @@ export default function BuyCategoryClient({ categoryId, citySlug, category }: Pr
             {/* Listings Grid */}
             <div className={styles.listingsSection}>
                 <div className={styles.listingsGrid}>
-                    {filteredListings.map((item) => {
+                    {filteredListings.map((item, index) => {
                         const city = cities.find(c => c.id === (item as any).city_id);
                         const location = city ? getCityName(city) : (item as any).city?.name;
 
-                        const cardProps = {
-                            id: item.id,
-                            title: item.title,
-                            location: location || '',
-                            price: `${item.price.toLocaleString()} ${tHome('currency_symbol')}`,
-                            rating: item.rating || 4.8,
-                            image: item.image,
-                            type: 'buy' as const,
-                            tag: item.is_available ? undefined : 'Sold'
+                        // Pass full item with resolved location
+                        const enhancedItem = {
+                            ...item,
+                            location: location || ''
                         };
 
+                        const isLast = index === filteredListings.length - 1;
+
                         return (
-                            <Link key={item.id} href={routes.listing(item.slug || item.id.toString()) as any} className={styles.cardLink}>
-                                <ListingCard item={cardProps as any} />
+                            <Link
+                                ref={isLast ? (lastElementRef as any) : undefined}
+                                key={item.id}
+                                href={routes.listing(item.slug || item.id.toString()) as any}
+                                className={styles.cardLink}
+                            >
+                                <ListingCard item={enhancedItem as any} />
                             </Link>
                         );
                     })}
                 </div>
+
+                {loadingMore && (
+                    <div style={{ textAlign: 'center', padding: '2rem 0', gridColumn: '1 / -1' }}>
+                        <div className={styles.loadingSpinner} style={{ display: 'inline-block', width: '30px', height: '30px', border: '3px solid rgba(0,0,0,0.1)', borderTopColor: '#FF385C', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                    </div>
+                )}
 
                 {filteredListings.length === 0 && (
                     <div className={styles.emptyState}>
