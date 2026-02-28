@@ -88,7 +88,7 @@ export default function DynamicListingForm({ initialData, isEdit }: { initialDat
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
-                        <label className="block text-sm font-medium mb-1">Titre de l'annonce</label>
+                        <label className="block text-sm font-medium mb-1">Titre de l&apos;annonce</label>
                         <input name="title" required defaultValue={initialData?.title} className="w-full border rounded-lg p-2" />
                     </div>
 

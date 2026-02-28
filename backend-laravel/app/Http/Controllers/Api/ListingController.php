@@ -145,10 +145,10 @@ class ListingController extends Controller
             $isOwner = $user && $user->id === $listing->user_id;
             $isAdmin = $user && ($user->role === 'admin' || $user->id === 1);
 
-            if (!$isOwner && !$isAdmin) {
+            if (! $isOwner && ! $isAdmin) {
                 return response()->json([
                     'message' => 'This listing is not currently available.',
-                    'status' => $listing->status
+                    'status' => $listing->status,
                 ], 403);
             }
         }
@@ -164,11 +164,11 @@ class ListingController extends Controller
         $listing = Listing::findOrFail($id);
 
         if ($listing->user_id !== Auth::id() && Auth::id() !== 1) {
-             // For testing ease, we might skip strict auth or assume ID 1 is owner
+            // For testing ease, we might skip strict auth or assume ID 1 is owner
         }
-        
+
         $data = $request->validated();
-        
+
         // Include files explicitly as they might not be in validated() if rules are basic
         if ($request->hasFile('image_hero')) {
             $data['image_hero'] = $request->file('image_hero');
@@ -180,10 +180,10 @@ class ListingController extends Controller
             $data['existing_images'] = $request->input('existing_images');
         }
 
-        \Illuminate\Support\Facades\Log::info('Updating Listing ID: ' . $id, [
+        \Illuminate\Support\Facades\Log::info('Updating Listing ID: '.$id, [
             'has_hero' => isset($data['image_hero']),
             'images_count' => isset($data['images']) ? count($data['images']) : 0,
-            'existing_count' => isset($data['existing_images']) ? count($data['existing_images']) : 0
+            'existing_count' => isset($data['existing_images']) ? count($data['existing_images']) : 0,
         ]);
 
         $updatedListing = $this->listingService->updateListing($listing, $data);

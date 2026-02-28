@@ -156,7 +156,7 @@ export default function FeaturedCategoriesPage() {
                 <div className={styles.settingsPanel}>
                     <div className={styles.sectionTitle}>
                         <Settings2 size={24} className="text-slate-600" />
-                        <span>Configuration d'affichage</span>
+                        <span>Configuration d&apos;affichage</span>
                     </div>
                     <div className={styles.settingField}>
                         <label className={styles.label}>Max annonces par catégorie :</label>

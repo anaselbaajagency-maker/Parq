@@ -128,7 +128,7 @@ export default function MaintenancePage() {
                             placeholder="Message à afficher aux visiteurs (ex: Nous effectuons une mise à jour critique...)"
                         />
                         <p className={styles.helperText}>
-                            Ce message sera affiché bien en évidence sur l'écran de maintenance. Vous pouvez utiliser du texte simple.
+                            Ce message sera affiché bien en évidence sur l&apos;écran de maintenance. Vous pouvez utiliser du texte simple.
                         </p>
                     </div>
                 </div>

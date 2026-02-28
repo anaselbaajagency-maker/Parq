@@ -465,7 +465,7 @@ export default function EditListingClient({ id }: { id: string }) {
                             ) : (
                                 <label className={styles.uploadLabel}>
                                     <Upload size={24} />
-                                    <span>Cliquez pour télécharger l'image principale</span>
+                                    <span>Cliquez pour télécharger l&apos;image principale</span>
                                     <input type="file" accept="image/*" onChange={handleHeroChange} className={styles.hiddenInput} />
                                 </label>
                             )}
@@ -474,7 +474,7 @@ export default function EditListingClient({ id }: { id: string }) {
 
                     {/* Additional Images Upload */}
                     <div className={styles.formGroup}>
-                        <label className={styles.label}>Galerie d'images</label>
+                        <label className={styles.label}>Galerie d&apos;images</label>
                         <div className={styles.imagesGrid}>
                             {/* Existing images */}
                             {existingImages.map((img, idx) => (

@@ -161,10 +161,10 @@ class ListingService
         if (isset($data['image_hero'])) {
             $file = $data['image_hero'];
             $path = $file->store('listings', 'public');
-            $heroUrl = asset('storage/' . $path);
+            $heroUrl = asset('storage/'.$path);
             $listing->image_hero = $heroUrl;
             // Also ensure it's in the images list
-            if (!in_array($heroUrl, $currentImageUrls)) {
+            if (! in_array($heroUrl, $currentImageUrls)) {
                 array_unshift($currentImageUrls, $heroUrl);
             }
         }
@@ -174,7 +174,7 @@ class ListingService
             foreach ($data['images'] as $file) {
                 if ($file instanceof \Illuminate\Http\UploadedFile) {
                     $path = $file->store('listings', 'public');
-                    $currentImageUrls[] = asset('storage/' . $path);
+                    $currentImageUrls[] = asset('storage/'.$path);
                 }
             }
         }

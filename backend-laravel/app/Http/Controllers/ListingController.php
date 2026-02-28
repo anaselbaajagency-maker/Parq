@@ -134,7 +134,7 @@ class ListingController extends Controller implements HasMiddleware
         $validated['images'] = $imagePaths;
 
         // Set image_hero to the first image if available
-        if (!empty($imagePaths)) {
+        if (! empty($imagePaths)) {
             $validated['image_hero'] = $imagePaths[0];
         }
 
@@ -216,7 +216,7 @@ class ListingController extends Controller implements HasMiddleware
         // Handle Image Hero
         if ($request->hasFile('image_hero')) {
             $path = $request->file('image_hero')->store('listings', 'public');
-            $validated['image_hero'] = asset('storage/' . $path);
+            $validated['image_hero'] = asset('storage/'.$path);
         }
 
         // Handle Gallery Images (Merge Existing + New)
@@ -225,13 +225,13 @@ class ListingController extends Controller implements HasMiddleware
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $file) {
                 $path = $file->store('listings', 'public');
-                $currentImages[] = asset('storage/' . $path);
+                $currentImages[] = asset('storage/'.$path);
             }
         }
-        
+
         // Ensure hero image is also in the main images list if it was updated/uploaded (optional per business logic, but safe)
-        if (isset($validated['image_hero']) && !in_array($validated['image_hero'], $currentImages)) {
-             array_unshift($currentImages, $validated['image_hero']);
+        if (isset($validated['image_hero']) && ! in_array($validated['image_hero'], $currentImages)) {
+            array_unshift($currentImages, $validated['image_hero']);
         }
 
         $validated['images'] = $currentImages;

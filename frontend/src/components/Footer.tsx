@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import styles from './Footer.module.css';
-import { usePathname } from '../navigation';
+import { Link, usePathname } from '../navigation';
 import { useEffect, useState } from 'react';
 import { fetchSettings, Settings } from '@/lib/api';
 
@@ -47,11 +47,9 @@ export default function Footer({ locale }: { locale?: string }) {
                     </div>
 
                     <div className={styles.languageSelect}>
-                        <a href="/en" className={styles.langLink}>English</a>
+                        <Link href="/" locale="fr" className={styles.langLink}>Français</Link>
                         <span className={styles.separator}>|</span>
-                        <a href="/fr" className={styles.langLink}>Français</a>
-                        <span className={styles.separator}>|</span>
-                        <a href="/ar" className={styles.langLink}>العربية</a>
+                        <Link href="/" locale="ar" className={styles.langLink}>العربية</Link>
                     </div>
                 </div>
             </div>

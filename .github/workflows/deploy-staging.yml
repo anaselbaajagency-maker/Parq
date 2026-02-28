@@ -1,0 +1,50 @@
+name: Deploy (Staging)
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy via SSH (pull + build on server)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            echo "==> Updating repo (develop)"
+            git fetch origin
+            git checkout develop
+            git pull --ff-only origin develop
+
+            echo "==> Backend (Laravel)"
+            cd backend-laravel
+            composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            echo "==> Frontend (Next.js)"
+            cd ../frontend
+            npm ci
+            NEXT_PUBLIC_API_URL="${{ secrets.FRONTEND_API_URL }}" npm run build
+
+            echo "==> Restart services (customize for your server)"
+            echo "Example: sudo systemctl restart php8.3-fpm nginx"
+            echo "Example: pm2 reload parq-frontend"
+

@@ -161,7 +161,7 @@ export default function AdminWalletsClient() {
                     <div className="flex justify-between items-start">
                         <div>
                             <div className={styles.statValue}>{stats?.approved_today || 0}</div>
-                            <div className={styles.statLabel}>Validé aujourd'hui</div>
+                            <div className={styles.statLabel}>Validé aujourd&apos;hui</div>
                         </div>
                         <div className={styles.statIconWrapper}>
                             <CheckCircle2 size={24} />
@@ -285,7 +285,7 @@ export default function AdminWalletsClient() {
                                 <tr>
                                     <td colSpan={6} className={styles.emptyCell}>
                                         <Loader2 className="animate-spin mx-auto mb-2" />
-                                        Chargement de l'historique...
+                                        Chargement de l&apos;historique...
                                     </td>
                                 </tr>
                             ) : history.length === 0 ? (
@@ -365,7 +365,7 @@ export default function AdminWalletsClient() {
                                     <div className="bg-orange-50 text-orange-800 p-4 rounded-xl mb-6 flex items-start gap-3">
                                         <CheckCircle className="shrink-0 mt-0.5" size={20} />
                                         <div>
-                                            <p className="font-bold">Confirmation d'approbation</p>
+                                            <p className="font-bold">Confirmation d&apos;approbation</p>
                                             <p className="text-sm opacity-90">
                                                 Vous allez créditer <span className="font-bold">{selectedRequest.amount} DH</span> sur le compte de <span className="font-bold">{selectedRequest.user.full_name}</span>.
                                             </p>
@@ -400,7 +400,7 @@ export default function AdminWalletsClient() {
                                         <div>
                                             <p className="font-bold">Refus de la demande</p>
                                             <p className="text-sm opacity-90">
-                                                L'utilisateur sera notifié et la demande sera marquée comme rejetée.
+                                                L&apos;utilisateur sera notifié et la demande sera marquée comme rejetée.
                                             </p>
                                         </div>
                                     </div>

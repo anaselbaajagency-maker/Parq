@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+
 :root {
   /* Color System - Parq Design System */
   --color-background: #FFFFFF;
@@ -10,7 +12,7 @@
   --color-brand-hover: #E5A600;
 
   /* Typography */
-  --font-primary: var(--font-cairo), 'Almarai', sans-serif;
+  --font-primary: 'Cairo', 'Almarai', sans-serif;
 
   /* Spacing */
   --space-xs: 0.25rem;

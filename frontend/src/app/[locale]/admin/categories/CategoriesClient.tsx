@@ -135,7 +135,7 @@ export default function CategoriesClient() {
             <header className={styles.header}>
                 <div>
                     <h1 className={styles.title}>Gestion des Catégories</h1>
-                    <p className={styles.subtitle}>Organisez les types d'équipements et services</p>
+                    <p className={styles.subtitle}>Organisez les types d&apos;équipements et services</p>
                 </div>
                 <button onClick={handleCreate} className={styles.primaryBtn}>
                     <Plus size={20} />

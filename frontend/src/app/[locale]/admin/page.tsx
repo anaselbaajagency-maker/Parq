@@ -84,7 +84,7 @@ export default function AdminPage() {
             <div className={styles.accessDenied}>
                 <AlertTriangle size={48} />
                 <h2>Access Denied</h2>
-                <p>You don't have permission to access this page.</p>
+                <p>You don&apos;t have permission to access this page.</p>
             </div>
         );
     }

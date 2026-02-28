@@ -24,11 +24,11 @@ class WalletDeductionTest extends TestCase
         $category = Category::create([
             'name' => 'General',
             'slug' => 'general',
-            'type' => 'rent'
+            'type' => 'rent',
         ]);
-        
+
         $user = User::factory()->create();
-        
+
         // Create 5 active listings
         for ($i = 0; $i < 5; $i++) {
             Listing::create([
@@ -38,10 +38,10 @@ class WalletDeductionTest extends TestCase
                 'slug' => "active-listing-$i",
                 'status' => 'active',
                 'price' => 100,
-                'price_unit' => 'DH/day'
+                'price_unit' => 'DH/day',
             ]);
         }
-        
+
         // Create 2 inactive listings
         for ($i = 0; $i < 2; $i++) {
             Listing::create([
@@ -51,11 +51,11 @@ class WalletDeductionTest extends TestCase
                 'slug' => "pending-listing-$i",
                 'status' => 'pending',
                 'price' => 100,
-                'price_unit' => 'DH/day'
+                'price_unit' => 'DH/day',
             ]);
         }
 
-        (new DailyListingDeductionJob())->handle();
+        (new DailyListingDeductionJob)->handle();
 
         Bus::assertDispatched(ProcessListingDeductionJob::class, 5);
     }
@@ -66,21 +66,21 @@ class WalletDeductionTest extends TestCase
             'name' => 'Test Category',
             'slug' => 'test-category',
             'type' => 'rent',
-            'daily_cost' => 10
+            'daily_cost' => 10,
         ]);
-        
+
         $user = User::factory()->create();
         $wallet = Wallet::where('user_id', $user->id)->first();
-        if (!$wallet) {
+        if (! $wallet) {
             $wallet = Wallet::create([
                 'user_id' => $user->id,
                 'balance' => 100,
-                'currency_label' => 'SOLD DIRHAM'
+                'currency_label' => 'SOLD DIRHAM',
             ]);
         } else {
             $wallet->update(['balance' => 100]);
         }
-        
+
         $listing = Listing::create([
             'user_id' => $user->id,
             'category_id' => $category->id,
@@ -88,7 +88,7 @@ class WalletDeductionTest extends TestCase
             'title' => 'Test Listing',
             'slug' => 'test-listing',
             'price' => 100,
-            'price_unit' => 'DH/day'
+            'price_unit' => 'DH/day',
         ]);
 
         $walletService = app(WalletService::class);
@@ -104,21 +104,21 @@ class WalletDeductionTest extends TestCase
             'name' => 'Expensive Category',
             'slug' => 'expensive-category',
             'type' => 'rent',
-            'daily_cost' => 50
+            'daily_cost' => 50,
         ]);
-        
+
         $user = User::factory()->create();
         $wallet = Wallet::where('user_id', $user->id)->first();
-        if (!$wallet) {
+        if (! $wallet) {
             $wallet = Wallet::create([
                 'user_id' => $user->id,
                 'balance' => 10,
-                'currency_label' => 'SOLD DIRHAM'
+                'currency_label' => 'SOLD DIRHAM',
             ]);
         } else {
             $wallet->update(['balance' => 10]);
         }
-        
+
         $listing = Listing::create([
             'user_id' => $user->id,
             'category_id' => $category->id,
@@ -126,7 +126,7 @@ class WalletDeductionTest extends TestCase
             'title' => 'Expensive Listing',
             'slug' => 'expensive-listing',
             'price' => 100,
-            'price_unit' => 'DH/day'
+            'price_unit' => 'DH/day',
         ]);
 
         $walletService = app(WalletService::class);

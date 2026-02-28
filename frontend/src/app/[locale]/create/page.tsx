@@ -361,7 +361,7 @@ export default function CreateListingPage() {
                             ) : (
                                 <label className={styles.uploadLabel}>
                                     <UploadCloud size={24} />
-                                    <span>Cliquez pour télécharger l'image principale</span>
+                                    <span>Cliquez pour télécharger l&apos;image principale</span>
                                     <input type="file" accept="image/*" onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {

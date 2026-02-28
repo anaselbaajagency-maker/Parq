@@ -27,7 +27,7 @@ export default function ListingGallery({ images, title }: ListingGalleryProps) {
                     <ImageOff size={48} className="text-gray-300" />
                 </div>
                 <p className="font-semibold text-gray-500 relative z-10">Aucune image disponible</p>
-                <p className="text-xs text-gray-400 mt-1 relative z-10">Cette annonce n'a pas de photos</p>
+                <p className="text-xs text-gray-400 mt-1 relative z-10">Cette annonce n&apos;a pas de photos</p>
             </div>
         );
     }

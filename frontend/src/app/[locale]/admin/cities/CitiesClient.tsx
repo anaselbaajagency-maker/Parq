@@ -317,7 +317,7 @@ export default function CitiesClient() {
                                 >
                                     <option value="">Sélectionner une région</option>
                                     <option value="Tanger-Tétouan-Al Hoceïma">Tanger-Tétouan-Al Hoceïma</option>
-                                    <option value="L'Oriental">L'Oriental</option>
+                                    <option value={"L'Oriental"}>L&apos;Oriental</option>
                                     <option value="Fès-Meknès">Fès-Meknès</option>
                                     <option value="Rabat-Salé-Kénitra">Rabat-Salé-Kénitra</option>
                                     <option value="Béni Mellal-Khénifra">Béni Mellal-Khénifra</option>

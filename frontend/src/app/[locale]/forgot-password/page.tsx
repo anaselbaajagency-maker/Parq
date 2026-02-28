@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
                             Récupération <br /> <span>sécurisée.</span>
                         </h1>
                         <p className={styles.heroSubtitle}>
-                            Ne vous inquiétez pas, cela arrive aux meilleurs. Récupérez l'accès à votre compte en quelques étapes.
+                            Ne vous inquiétez pas, cela arrive aux meilleurs. Récupérez l&apos;accès à votre compte en quelques étapes.
                         </p>
                     </div>
 
@@ -116,7 +116,7 @@ export default function ForgotPasswordPage() {
                     )}
 
                     <div className={styles.footer}>
-                        Vous n'avez pas de compte ?
+                        Vous n&apos;avez pas de compte ?
                         <Link href="/register" className={styles.link}>{t('signup_link')}</Link>
                     </div>
                 </div>

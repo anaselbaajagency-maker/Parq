@@ -348,7 +348,9 @@ class DemoDataSeeder extends Seeder
                     $user = $createdUsers[$index % count($createdUsers)];
                 }
 
-                if (!$user) $user = $createdUsers[0]; // Fallback
+                if (! $user) {
+                    $user = $createdUsers[0];
+                } // Fallback
 
                 Listing::updateOrCreate(
                     ['slug' => Str::slug($listingData['title'])],

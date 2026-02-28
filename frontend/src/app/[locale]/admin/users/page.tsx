@@ -172,7 +172,7 @@ export default function UsersPage() {
                         <tr>
                             <th>Identité</th>
                             <th>Rôle</th>
-                            <th>Date d'inscription</th>
+                            <th>Date d&apos;inscription</th>
                             <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>

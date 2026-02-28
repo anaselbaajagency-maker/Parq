@@ -154,7 +154,7 @@ export default async function ListingPage({
                                     <div className="flex gap-3">
                                         <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
                                         <p className="text-xs text-gray-400 leading-relaxed">
-                                            <strong>Conseil de sécurité:</strong> Ne jamais envoyer d'argent à l'avance. Rencontrez le vendeur dans un lieu public.
+                                            <strong>Conseil de sécurité:</strong> Ne jamais envoyer d&apos;argent à l&apos;avance. Rencontrez le vendeur dans un lieu public.
                                         </p>
                                     </div>
                                 </div>

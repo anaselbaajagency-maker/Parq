@@ -2,11 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Exceptions\InsufficientBalanceException;
 use App\Models\Listing;
-use App\Notifications\ListingHiddenNotification;
-use App\Notifications\LowBalanceNotification;
-use App\Services\WalletService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
