@@ -29,9 +29,13 @@ This is a React Native mobile application built with Expo, designed to connect w
    ```
 
 2. **Configure API URL**
-   Open `src/services/api.js` and update `BASE_URL`:
-   - **Emulator**: `http://10.0.2.2:8000/api`
-   - **Physical Device**: `http://YOUR_LOCAL_NETWORK_IP:8000/api`
+   Create `.env` from `.env.example` and set:
+   ```bash
+   EXPO_PUBLIC_API_URL=http://10.0.2.2:8000/api/v1
+   ```
+   - **Emulator**: `http://10.0.2.2:8000/api/v1`
+   - **Physical Device**: `http://YOUR_LOCAL_NETWORK_IP:8000/api/v1`
+   - **Production**: `https://YOUR_API_DOMAIN/api/v1`
 
 3. **CORS Configuration (Backend)**
    Ensure your Laravel backend allows requests from your mobile device IP. In `config/cors.php`, you can temporarily set:

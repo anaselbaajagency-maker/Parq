@@ -12,6 +12,7 @@ This repo contains the Parq platform:
 - `main`: production
 
 See `docs/ENVIRONMENTS.md` and `docs/BRANCHING.md`.
+Versioning policy: `docs/VERSIONING.md` and `CHANGELOG.md`.
 
 ## Local Dev (Quickstart)
 
@@ -57,4 +58,3 @@ DB_CONNECTION=sqlite DB_DATABASE=':memory:' php artisan test
 ## Deploy
 
 See `docs/DEPLOYMENT.md` for a server checklist and GitHub Actions skeleton.
-

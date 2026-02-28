@@ -4,9 +4,13 @@ import '../storage/secure_storage.dart';
 class ApiClient {
   final Dio dio;
   final SecureStorage storage;
+  static const String _apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000/api/v1',
+  );
 
   ApiClient({required this.dio, required this.storage}) {
-    dio.options.baseUrl = 'http://localhost:8000/api'; // Replace with actual backend URL
+    dio.options.baseUrl = _apiBaseUrl;
     dio.options.connectTimeout = const Duration(seconds: 10);
     dio.options.receiveTimeout = const Duration(seconds: 10);
 

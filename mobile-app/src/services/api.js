@@ -4,11 +4,12 @@ import * as SecureStore from 'expo-secure-store';
 /**
  * API CONFIGURATION
  * -----------------
- * 1. For Android Emulator: Use http://10.0.2.2:8000/api
- * 2. For Physical Device: Use http://YOUR_LOCAL_IP:8000/api
- * 3. For Production: Use your actual production URL
+ * Set EXPO_PUBLIC_API_URL in .env:
+ * - Android Emulator: http://10.0.2.2:8000/api
+ * - Physical Device: http://YOUR_LOCAL_IP:8000/api
+ * - Production: https://api.example.com/api
  */
-const BASE_URL = 'http://10.0.2.2:8000/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000/api/v1';
 
 const api = axios.create({
     baseURL: BASE_URL,

@@ -1,16 +1,30 @@
-# parq_mobile
+# Parq Mobile (Flutter)
 
-A new Flutter project.
+## Setup
 
-## Getting Started
+```bash
+cd mobile
+flutter pub get
+```
 
-This project is a starting point for a Flutter application.
+## API Base URL
 
-A few resources to get you started if this is your first Flutter project:
+This app uses `--dart-define` for environment configuration.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Example (Android emulator):
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+```
+
+Example (physical device):
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://YOUR_LOCAL_IP:8000/api/v1
+```
+
+Example (production):
+
+```bash
+flutter run --dart-define=API_BASE_URL=https://YOUR_API_DOMAIN/api/v1
+```

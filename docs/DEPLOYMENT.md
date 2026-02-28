@@ -8,6 +8,9 @@ This repo can be deployed as:
 
 - Provision DB (MySQL recommended for prod)
 - Set `backend-laravel/.env` (from `backend-laravel/.env.production` template)
+- Set CORS allowlist:
+  - `CORS_ALLOWED_ORIGINS=https://YOUR_FRONTEND_DOMAIN.com`
+  - `CORS_SUPPORTS_CREDENTIALS=true` (if cookie-based auth is used)
 - Run:
   - `composer install --no-dev --optimize-autoloader`
   - `php artisan migrate --force`

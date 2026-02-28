@@ -2,18 +2,24 @@
 
 This is a practical checklist for taking ParqV2 from "works" to "production SaaS".
 
+## Executed Batch (2026-02-28)
+
+- Security: route rate limits + backend/frontend security headers + CORS allowlist via env.
+- Mobile readiness: `/api/v1` compatibility route and mobile env templates.
+- Process: changelog/versioning docs + CodeQL workflow.
+
 ## 0) GitHub / Process (Now)
 
 - [ ] Protect `main`: block direct pushes, require CI checks, require 1 review
 - [ ] Protect `develop`: require CI checks
 - [ ] Create GitHub Environments: `staging`, `production` + add deploy secrets
-- [ ] Add a `CHANGELOG.md` and versioning strategy (tags/releases)
+- [x] Add a `CHANGELOG.md` and versioning strategy (tags/releases)
 
 ## 1) Code Quality
 
 Backend (Laravel):
 - [ ] Add static analysis (Larastan / PHPStan) + run in CI
-- [ ] Enforce formatting (Pint already exists) + fail CI on diff
+- [x] Enforce formatting (Pint already exists) + fail CI on diff
 - [ ] Add request validation FormRequests everywhere (no raw `request()->all()` in services)
 - [ ] Add API resource transformers for consistent responses
 - [ ] Increase test coverage: auth, listings filters, wallet edge cases, permissions
@@ -28,23 +34,23 @@ Frontend (Next.js):
 
 Backend:
 - [ ] Decide auth for web + mobile: Sanctum (SPA) or JWT/OAuth2 (mobile-friendly)
-- [ ] Rate-limit sensitive endpoints (OTP, login, password reset)
+- [x] Rate-limit sensitive endpoints (OTP, login, password reset)
 - [ ] Add RBAC (admin vs user) with policies/guards and enforce everywhere
 - [ ] Validate uploads (mime/size), store outside webroot, use signed URLs if needed
 - [ ] Centralize audit logging for wallet/admin actions
-- [ ] Set secure headers + CORS rules per environment (no wildcard in prod)
+- [x] Set secure headers + CORS rules per environment (no wildcard in prod)
 
 Frontend:
-- [ ] CSP + security headers (via Next config / reverse proxy)
+- [x] CSP + security headers (via Next config / reverse proxy)
 - [ ] Avoid storing long-lived tokens in localStorage (prefer httpOnly cookies if possible)
 
 GitHub:
 - [ ] Enable Dependabot PR auto-merge rules (optional)
-- [ ] Add CodeQL (if repo is eligible) or alternative SAST
+- [x] Add CodeQL (if repo is eligible) or alternative SAST
 
 ## 3) SaaS Readiness
 
-- [ ] Environment config templates: `.env.example` for each app with required vars documented
+- [x] Environment config templates: `.env.example` for each app with required vars documented
 - [ ] Observability: Sentry (frontend + backend), structured logs, request IDs
 - [ ] Background jobs: Redis queue + retries + dead-letter strategy
 - [ ] Backups + restore drills (DB + storage)
@@ -71,9 +77,8 @@ Load testing:
 
 ## 5) Mobile (Android/iOS) Backend Readiness
 
-- [ ] API versioning (`/api/v1/...`) + backward compatibility rules
+- [x] API versioning (`/api/v1/...`) + backward compatibility rules
 - [ ] Token auth + refresh tokens + device/session management
 - [ ] Push notifications (FCM/APNs) endpoints + background jobs
 - [ ] File uploads optimized for mobile (chunking/signed uploads if needed)
 - [ ] Clear error contracts (error codes/messages) for consistent UX
-
