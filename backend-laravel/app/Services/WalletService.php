@@ -26,23 +26,23 @@ class WalletService
     }
 
     /**
-     * Create a wallet with registration bonus.
+     * Award the welcome bonus to a user (typically after email verification).
      */
-    public function createWalletWithBonus(User $user, ?int $bonusAmount = null): Wallet
+    public function awardWelcomeBonus(User $user, ?int $bonusAmount = null): Wallet
     {
         $bonusAmount = $bonusAmount ?? config('wallet.registration_bonus', 100);
 
         return DB::transaction(function () use ($user, $bonusAmount) {
-            // Check if wallet already exists
-            if ($user->wallet) {
-                return $user->wallet;
-            }
+            $wallet = $this->getOrCreateWallet($user);
 
-            // Create wallet
-            $wallet = $this->createWallet($user);
+            // Check if bonus was already awarded
+            $hasBonus = $wallet->transactions()
+                ->where('type', WalletTransaction::TYPE_BONUS)
+                ->where('description', 'Bonus de bienvenue')
+                ->exists();
 
-            // Credit bonus if amount > 0
-            if ($bonusAmount > 0) {
+            // Credit bonus if amount > 0 and not already awarded
+            if ($bonusAmount > 0 && !$hasBonus) {
                 $wallet->increment('balance', $bonusAmount);
 
                 $wallet->transactions()->create([
@@ -62,7 +62,7 @@ class WalletService
      */
     public function getOrCreateWallet(User $user): Wallet
     {
-        return $user->wallet ?? $this->createWallet($user);
+        return $user->wallet()->first() ?? $this->createWallet($user);
     }
 
     /**

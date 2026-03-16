@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { fetchCategories, createCategory, updateCategory, deleteCategory, Category } from '@/lib/api';
-import { Plus, Edit2, Trash2, X, Loader2, Save, Search, LayoutGrid, CheckCircle2, AlertOctagon, Info } from 'lucide-react';
+import { fetchCategories, createCategory, updateCategory, deleteCategory, bulkDeleteCategories, Category } from '@/lib/api';
+import { Plus, Edit2, Trash2, X, Loader2, Save, Search, LayoutGrid, CheckCircle2, AlertOctagon, Info, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { useAlert } from '@/context/AlertContext';
 import IconPicker from './IconPicker';
 import styles from './admin-categories.module.css';
@@ -16,7 +16,12 @@ export default function CategoriesClient() {
     const [formData, setFormData] = useState<Partial<Category>>({});
     const [processing, setProcessing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [error, setError] = useState<string | null>(null);
     const { showAlert } = useAlert();
+
+    // Multi-select State
+    const [selectedIds, setSelectedIds] = useState<Set<number | string>>(new Set());
+    const [bulkActionProcessing, setBulkActionProcessing] = useState(false);
 
     useEffect(() => {
         loadCategories();
@@ -24,11 +29,18 @@ export default function CategoriesClient() {
 
     const loadCategories = async () => {
         setLoading(true);
+        setError(null);
         try {
             const data = await fetchCategories();
             setCategories(data);
-        } catch (error) {
-            console.error('Failed to load categories', error);
+        } catch (error: any) {
+            const errorMessage = error?.message || (typeof error === 'string' ? error : '');
+            if (errorMessage.includes('ACCESS_DENIED')) {
+                setError('ACCESS_DENIED');
+            } else {
+                console.error('Failed to load categories', error);
+                setError('FETCH_ERROR');
+            }
         } finally {
             setLoading(false);
         }
@@ -49,6 +61,46 @@ export default function CategoriesClient() {
         );
     }, [categories, searchQuery]);
 
+    const isAllSelected = filteredCategories.length > 0 && Array.from(selectedIds).length === filteredCategories.length;
+
+    const toggleSelectAll = () => {
+        if (isAllSelected) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredCategories.map(c => c.id)));
+        }
+    };
+
+    const toggleSelect = (id: number | string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    async function handleBulkDelete() {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Are you sure you want to delete ${selectedIds.size} categories? All listings in these categories might be affected.`)) return;
+
+        setBulkActionProcessing(true);
+        try {
+            const idsArray = Array.from(selectedIds);
+            await bulkDeleteCategories(idsArray);
+            setCategories(prev => prev.filter(c => !selectedIds.has(c.id)));
+            setSelectedIds(new Set());
+            showAlert('success', `${idsArray.length} catégories supprimées avec succès.`, 'Succès');
+        } catch (error) {
+            console.error('Bulk delete error:', error);
+            showAlert('error', 'Une erreur est survenue lors de la suppression en masse', 'Erreur');
+        } finally {
+            setBulkActionProcessing(false);
+        }
+    }
+
     const handleCreate = () => {
         setEditingCategory(null);
         setFormData({
@@ -62,7 +114,8 @@ export default function CategoriesClient() {
             description_fr: '',
             description_ar: '',
             is_active: true,
-            order: 0
+            order: 0,
+            daily_cost: 0
         } as any);
         setIsModalOpen(true);
     };
@@ -130,6 +183,41 @@ export default function CategoriesClient() {
 
     if (loading) return <div className={styles.loadingState}><Loader2 className={styles.spinner} size={40} /></div>;
 
+    if (error === 'ACCESS_DENIED') {
+        return (
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className={styles.primaryBtn}
+                        style={{ width: 'auto' }}
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger les catégories.</p>
+                    <button onClick={loadCategories} className={styles.primaryBtn} style={{ width: 'auto', margin: '0 auto' }}>Réessayer</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.container}>
             <header className={styles.header}>
@@ -137,10 +225,31 @@ export default function CategoriesClient() {
                     <h1 className={styles.title}>Gestion des Catégories</h1>
                     <p className={styles.subtitle}>Organisez les types d&apos;équipements et services</p>
                 </div>
-                <button onClick={handleCreate} className={styles.primaryBtn}>
-                    <Plus size={20} />
-                    Ajouter une catégorie
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        className={`${styles.selectAllBtn} ${isAllSelected ? styles.selected : ''}`}
+                        onClick={toggleSelectAll}
+                        title={isAllSelected ? "Désélectionner tout" : "Tout sélectionner"}
+                    >
+                        {isAllSelected ? <CheckCircle2 size={18} /> : <div className={styles.checkboxPlaceholder}></div>}
+                        <span>{isAllSelected ? "Tout désélectionner" : "Tout sélectionner"}</span>
+                    </button>
+
+                    {selectedIds.size > 0 && (
+                        <button
+                            className={styles.headerDeleteBtn}
+                            onClick={handleBulkDelete}
+                            disabled={bulkActionProcessing}
+                        >
+                            {bulkActionProcessing ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                            <span>Supprimer ({selectedIds.size})</span>
+                        </button>
+                    )}
+                    <button onClick={handleCreate} className={styles.primaryBtn}>
+                        <Plus size={20} />
+                        Ajouter une catégorie
+                    </button>
+                </div>
             </header>
 
             {/* Stats Grid */}
@@ -202,27 +311,50 @@ export default function CategoriesClient() {
                 <table className={styles.table}>
                     <thead>
                         <tr>
+                            <th style={{ width: '40px' }}></th>
                             <th>Nom</th>
                             <th>Nom (FR)</th>
-                            <th>Nom (AR)</th>
+                            <th>Annonces</th>
                             <th>Type</th>
+                            <th>Coût journalier</th>
                             <th>Icône</th>
-                            <th>Slug</th>
                             <th>Statut</th>
                             <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredCategories.map((category) => (
-                            <tr key={category.id}>
+                            <tr 
+                                key={category.id} 
+                                className={selectedIds.has(category.id) ? styles.selectedRow : ''}
+                                onClick={() => toggleSelect(category.id)}
+                            >
+                                <td>
+                                    <div 
+                                        className={`${styles.customCheckbox} ${selectedIds.has(category.id) ? styles.checked : ''}`}
+                                        onClick={(e) => { e.stopPropagation(); toggleSelect(category.id); }}
+                                    >
+                                        {selectedIds.has(category.id) && <CheckCircle2 size={14} />}
+                                    </div>
+                                </td>
                                 <td className={styles.nameCell}>
                                     {category.name}
                                 </td>
                                 <td>{category.name_fr || '-'}</td>
-                                <td>{category.name_ar || '-'}</td>
+                                <td>
+                                    <div className={styles.countBadge}>
+                                        <LayoutGrid size={14} className="text-slate-400" />
+                                        <span>{category.listings_count || 0}</span>
+                                    </div>
+                                </td>
                                 <td>
                                     <span className={`${styles.badge} ${category.type === 'rent' ? styles.badgeRent : styles.badgeBuy}`}>
                                         {category.type === 'rent' ? 'LOCATION' : 'ACHAT'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                                        {category.daily_cost || 0} DH
                                     </span>
                                 </td>
                                 <td>
@@ -252,9 +384,9 @@ export default function CategoriesClient() {
                                 </td>
                             </tr>
                         ))}
-                        {filteredCategories.length === 0 && (
+                         {filteredCategories.length === 0 && (
                             <tr>
-                                <td colSpan={8} className={styles.emptyCell}>Aucune catégorie trouvée.</td>
+                                <td colSpan={10} className={styles.emptyCell}>Aucune catégorie trouvée.</td>
                             </tr>
                         )}
                     </tbody>
@@ -352,15 +484,29 @@ export default function CategoriesClient() {
                                 </div>
                             </div>
 
-                            <div className={styles.formGroup}>
-                                <label>Slug (URL) *</label>
-                                <input
-                                    type="text"
-                                    value={formData.slug || ''}
-                                    onChange={e => setFormData({ ...formData, slug: e.target.value })}
-                                    required
-                                    className="font-mono text-sm bg-gray-50"
-                                />
+                            <div className={styles.row}>
+                                <div className={styles.formGroup}>
+                                    <label>Slug (URL) *</label>
+                                    <input
+                                        type="text"
+                                        value={formData.slug || ''}
+                                        onChange={e => setFormData({ ...formData, slug: e.target.value })}
+                                        required
+                                        className="font-mono text-sm bg-gray-50"
+                                    />
+                                </div>
+                                <div className={styles.formGroup}>
+                                    <label>Coût journalier (DH)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={formData.daily_cost || 0}
+                                        onChange={e => setFormData({ ...formData, daily_cost: parseFloat(e.target.value) || 0 })}
+                                        placeholder="Ex: 10.00"
+                                    />
+                                    <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Montant débité chaque jour.</p>
+                                </div>
                             </div>
 
                             <div className={styles.formGroup}>
@@ -391,6 +537,34 @@ export default function CategoriesClient() {
                     onSelect={(icon) => setFormData({ ...formData, icon })}
                     onClose={() => setShowIconPicker(false)}
                 />
+            )}
+
+            {/* Floating Bulk Actions Bar */}
+            {selectedIds.size > 0 && (
+                <div className={styles.bulkActionsBar}>
+                    <div className={styles.bulkActionsContainer}>
+                        <div className={styles.bulkActionsInfo}>
+                            <span className={styles.selectionCount}>{selectedIds.size}</span>
+                            <span className={styles.selectionLabel}>sélectionné(s)</span>
+                        </div>
+                        <div className={styles.bulkActionsButtons}>
+                            <button
+                                className={styles.bulkDeleteBtn}
+                                onClick={handleBulkDelete}
+                                disabled={bulkActionProcessing}
+                            >
+                                {bulkActionProcessing ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                                <span>Supprimer la sélection</span>
+                            </button>
+                            <button
+                                className={styles.bulkCancelBtn}
+                                onClick={() => setSelectedIds(new Set())}
+                            >
+                                Annuler
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

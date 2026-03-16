@@ -68,10 +68,16 @@ return [
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
-            'block_for' => null,
+            'block_for' => env('REDIS_QUEUE_BLOCK_FOR', 5),
             'after_commit' => false,
         ],
 
+    ],
+
+    'defaults' => [
+        'tries' => (int) env('QUEUE_JOB_TRIES', 3),
+        'backoff_seconds' => (int) env('QUEUE_JOB_BACKOFF_SECONDS', 60),
+        'billing_queue' => env('QUEUE_BILLING_QUEUE', 'billing'),
     ],
 
     /*
@@ -86,7 +92,7 @@ return [
     */
 
     'batching' => [
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'job_batches',
     ],
 
@@ -105,8 +111,10 @@ return [
 
     'failed' => [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'failed_jobs',
+        'prune_after_hours' => (int) env('QUEUE_FAILED_PRUNE_HOURS', 168),
+        'batch_prune_after_hours' => (int) env('QUEUE_BATCH_PRUNE_HOURS', 168),
     ],
 
 ];

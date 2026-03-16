@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\GoogleLoginRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -9,56 +14,62 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    protected function issueToken(User $user, Request $request): string
     {
-        $request->validate([
-            'full_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'nullable|string|min:8|required_without:google_id',
-            'role' => 'required|string|in:CLIENT,PROVIDER,client,provider',
-            'google_id' => 'nullable|string',
-            'avatar' => 'nullable|string',
-        ]);
+        $clientType = strtolower((string) $request->input('client_type', 'mobile'));
+        $deviceName = (string) $request->input('device_name', $clientType === 'web' ? 'web-spa' : 'mobile-app');
+        $abilities = $clientType === 'web' ? ['web'] : ['mobile'];
+        $expirationMinutes = (int) (config('sanctum.expiration') ?? 0);
+        $expiresAt = $expirationMinutes > 0 ? now()->addMinutes($expirationMinutes) : null;
+
+        $tokenResult = $user->createToken($deviceName, $abilities, $expiresAt);
+
+        // Update the token metadata
+        $tokenResult->accessToken->forceFill([
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ])->save();
+
+        return $tokenResult->plainTextToken;
+    }
+
+    public function register(RegisterRequest $request)
+    {
+        $validated = $request->validated();
 
         $user = User::create([
-            'full_name' => $request->full_name,
-            'email' => $request->email,
-            'password' => $request->password ? Hash::make($request->password) : null,
-            'role' => strtolower($request->role) === 'client' ? 'user' : strtolower($request->role),
-            'phone' => $request->phone ?? null,
-            'google_id' => $request->google_id ?? null,
-            'avatar' => $request->avatar ?? null,
+            'full_name' => $validated['full_name'],
+            'email' => $validated['email'],
+            'password' => ! empty($validated['password']) ? Hash::make((string) $validated['password']) : null,
+            'role' => strtolower((string) $validated['role']) === 'client' ? 'user' : strtolower((string) $validated['role']),
+            'phone' => $validated['phone'] ?? null,
+            'google_id' => $validated['google_id'] ?? null,
+            'avatar' => $validated['avatar'] ?? null,
         ]);
 
         // Mark email as verified if Google Sign Up
-        if ($request->google_id) {
+        if (! empty($validated['google_id'])) {
             $user->email_verified_at = now();
             $user->save();
         }
 
-        $token = $user->createToken('parq-auth')->plainTextToken;
-
-        $userData = $user->toArray();
-        $userData['role'] = strtoupper($user->role);
+        $token = $this->issueToken($user, $request);
 
         return response()->json([
             'success' => true,
             'message' => 'Registration successful',
-            'user' => $userData,
+            'user' => (new UserResource($user))->resolve(),
             'token' => $token,
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
+        $validated = $request->validated();
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $validated['email'])->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check((string) $validated['password'], (string) $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Identifiants incorrects.'],
             ]);
@@ -67,15 +78,12 @@ class AuthController extends Controller
         // Keep existing tokens or clear? Let's clear for cleaner state.
         $user->tokens()->delete();
 
-        $token = $user->createToken('parq-auth')->plainTextToken;
-
-        $userData = $user->toArray();
-        $userData['role'] = strtoupper($user->role);
+        $token = $this->issueToken($user, $request);
 
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
-            'user' => $userData,
+            'user' => (new UserResource($user))->resolve(),
             'token' => $token,
         ]);
     }
@@ -92,30 +100,25 @@ class AuthController extends Controller
         ]);
     }
 
-    public function googleLogin(Request $request)
+    public function googleLogin(GoogleLoginRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'google_id' => 'required|string',
-            'full_name' => 'required|string',
-            'avatar' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $validated['email'])->first();
 
         if ($user) {
             // Update google_id if missing
             if (! $user->google_id) {
-                $user->google_id = $request->google_id;
+                $user->google_id = $validated['google_id'];
                 $user->save();
             }
         } else {
             // Create new user
             $user = User::create([
-                'full_name' => $request->full_name,
-                'email' => $request->email,
-                'google_id' => $request->google_id,
-                'avatar' => $request->avatar,
+                'full_name' => $validated['full_name'],
+                'email' => $validated['email'],
+                'google_id' => $validated['google_id'],
+                'avatar' => $validated['avatar'] ?? null,
                 'password' => null,
                 'role' => 'user',
                 'email_verified_at' => now(),
@@ -123,27 +126,24 @@ class AuthController extends Controller
         }
 
         $user->tokens()->delete();
-        $token = $user->createToken('parq-auth')->plainTextToken;
-
-        $userData = $user->toArray();
-        $userData['role'] = strtoupper($user->role);
+        $token = $this->issueToken($user, $request);
 
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
-            'user' => $userData,
+            'user' => (new UserResource($user))->resolve(),
             'token' => $token,
         ]);
     }
 
-    public function forgotPassword(Request $request)
+    public function forgotPassword(ForgotPasswordRequest $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $validated = $request->validated();
 
         // We will send the password reset link if the user exists
         // This relies on default Laravel Password Broker
         $status = \Illuminate\Support\Facades\Password::sendResetLink(
-            $request->only('email')
+            ['email' => $validated['email']]
         );
 
         // Always return success to prevent email enumeration,

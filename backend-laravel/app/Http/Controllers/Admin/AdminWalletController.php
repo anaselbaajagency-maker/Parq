@@ -3,18 +3,26 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminTopupApproveRequest;
+use App\Http\Requests\Admin\AdminTopupFiltersRequest;
+use App\Http\Requests\Admin\AdminTopupRejectRequest;
+use App\Http\Requests\Admin\AdminWalletManualCreditRequest;
+use App\Http\Resources\TopUpRequestResource;
+use App\Http\Resources\WalletTransactionResource;
+use App\Models\TopUpRequest;
 use App\Models\User;
 use App\Notifications\TopUpApprovedNotification;
+use App\Services\AuditLogService;
 use App\Services\TopUpService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class AdminWalletController extends Controller
 {
     public function __construct(
         protected WalletService $walletService,
-        protected TopUpService $topUpService
+        protected TopUpService $topUpService,
+        protected AuditLogService $auditLogService
     ) {}
 
     /**
@@ -22,16 +30,15 @@ class AdminWalletController extends Controller
      *
      * GET /api/admin/topups
      */
-    public function index(Request $request): JsonResponse
+    public function index(AdminTopupFiltersRequest $request): JsonResponse
     {
-        $filters = $request->only(['status', 'method', 'user_id', 'from_date', 'to_date']);
+        $filters = $request->validated();
         $requests = $this->topUpService->getAllRequests($filters);
+        $requests->loadMissing('user', 'approver');
 
         return response()->json([
             'success' => true,
-            'data' => $requests->map(function ($req) {
-                return $this->formatTopUpRequest($req);
-            }),
+            'data' => TopUpRequestResource::collection($requests)->resolve(),
         ]);
     }
 
@@ -43,12 +50,11 @@ class AdminWalletController extends Controller
     public function pending(): JsonResponse
     {
         $requests = $this->topUpService->getPendingRequests();
+        $requests->loadMissing('user', 'approver');
 
         return response()->json([
             'success' => true,
-            'data' => $requests->map(function ($req) {
-                return $this->formatTopUpRequest($req);
-            }),
+            'data' => TopUpRequestResource::collection($requests)->resolve(),
         ]);
     }
 
@@ -59,11 +65,11 @@ class AdminWalletController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $request = \App\Models\TopUpRequest::with(['user', 'approver'])->findOrFail($id);
+        $request = TopUpRequest::with(['user', 'approver'])->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data' => $this->formatTopUpRequest($request, true),
+            'data' => (new TopUpRequestResource($request))->resolve(),
         ]);
     }
 
@@ -72,20 +78,29 @@ class AdminWalletController extends Controller
      *
      * POST /api/admin/topups/{id}/approve
      */
-    public function approve(Request $request, int $id): JsonResponse
+    public function approve(AdminTopupApproveRequest $request, int $id): JsonResponse
     {
-        $request->validate([
-            'notes' => 'nullable|string|max:500',
-        ]);
+        $validated = $request->validated();
 
         $admin = $request->user();
-        $topUpRequest = \App\Models\TopUpRequest::findOrFail($id);
+        $topUpRequest = TopUpRequest::findOrFail($id);
 
         try {
             $approved = $this->topUpService->approve(
                 $topUpRequest,
                 $admin,
-                $request->input('notes')
+                $validated['notes'] ?? null
+            );
+
+            $this->auditLogService->log(
+                'admin.topup.approved',
+                $admin,
+                'topup_request',
+                $approved->id,
+                [
+                    'amount' => $approved->amount,
+                    'notes' => $validated['notes'] ?? null,
+                ]
             );
 
             // Notify the user
@@ -95,7 +110,7 @@ class AdminWalletController extends Controller
                 'success' => true,
                 'message' => 'Demande approuvée avec succès',
                 'data' => [
-                    'request_id' => $approved->id,
+                    'id' => $approved->id,
                     'amount' => $approved->amount,
                     'user_new_balance' => $this->walletService->getBalance($approved->user),
                 ],
@@ -114,27 +129,35 @@ class AdminWalletController extends Controller
      *
      * POST /api/admin/topups/{id}/reject
      */
-    public function reject(Request $request, int $id): JsonResponse
+    public function reject(AdminTopupRejectRequest $request, int $id): JsonResponse
     {
-        $request->validate([
-            'reason' => 'required|string|min:10|max:500',
-        ]);
+        $validated = $request->validated();
 
         $admin = $request->user();
-        $topUpRequest = \App\Models\TopUpRequest::findOrFail($id);
+        $topUpRequest = TopUpRequest::findOrFail($id);
 
         try {
             $rejected = $this->topUpService->reject(
                 $topUpRequest,
                 $admin,
-                $request->input('reason')
+                $validated['reason']
+            );
+
+            $this->auditLogService->log(
+                'admin.topup.rejected',
+                $admin,
+                'topup_request',
+                $rejected->id,
+                [
+                    'reason' => $validated['reason'],
+                ]
             );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Demande rejetée',
                 'data' => [
-                    'request_id' => $rejected->id,
+                    'id' => $rejected->id,
                 ],
             ]);
         } catch (\RuntimeException $e) {
@@ -151,22 +174,37 @@ class AdminWalletController extends Controller
      *
      * POST /api/admin/wallets/{userId}/credit
      */
-    public function manualCredit(Request $request, int $userId): JsonResponse
+    public function manualCredit(AdminWalletManualCreditRequest $request, int $userId): JsonResponse
     {
-        $request->validate([
-            'amount' => 'required|integer|min:1|max:100000',
-            'description' => 'required|string|min:5|max:255',
-        ]);
+        $validated = $request->validated();
 
         $admin = $request->user();
         $user = User::findOrFail($userId);
 
         $transaction = $this->walletService->adminCredit(
             $user,
-            $request->input('amount'),
-            $request->input('description'),
+            $validated['amount'],
+            $validated['description'],
             $admin
         );
+
+        $this->auditLogService->log(
+            'admin.wallet.manual_credit',
+            $admin,
+            'wallet_transaction',
+            $transaction->id,
+            [
+                'beneficiary_user_id' => $user->id,
+                'amount' => $validated['amount'],
+            ]
+        );
+
+        // Notify the user
+        $user->notify(new \App\Notifications\AdminWalletUpdateNotification(
+            $validated['amount'], 
+            'credit', 
+            $validated['description'] ?? 'Crédit manuel par l\'administrateur'
+        ));
 
         return response()->json([
             'success' => true,
@@ -188,6 +226,7 @@ class AdminWalletController extends Controller
     {
         $user = User::with('wallet')->findOrFail($userId);
         $wallet = $this->walletService->getOrCreateWallet($user);
+        $recentTransactions = $this->walletService->getTransactionHistory($user, 10)->loadMissing('reference');
 
         return response()->json([
             'success' => true,
@@ -203,16 +242,7 @@ class AdminWalletController extends Controller
                     'total_credits' => $this->walletService->getTotalCredits($user),
                     'total_spent' => $this->walletService->getTotalDebits($user),
                 ],
-                'recent_transactions' => $this->walletService->getTransactionHistory($user, 10)->map(function ($tx) {
-                    return [
-                        'id' => $tx->id,
-                        'amount' => $tx->amount,
-                        'type' => $tx->type,
-                        'type_label' => $tx->type_label,
-                        'description' => $tx->description,
-                        'created_at' => $tx->created_at->toIso8601String(),
-                    ];
-                }),
+                'recent_transactions' => WalletTransactionResource::collection($recentTransactions)->resolve(),
             ],
         ]);
     }
@@ -228,42 +258,5 @@ class AdminWalletController extends Controller
             'success' => true,
             'data' => $this->topUpService->getStatistics(),
         ]);
-    }
-
-    /**
-     * Format a top-up request for JSON response.
-     */
-    protected function formatTopUpRequest($request, bool $detailed = false): array
-    {
-        $data = [
-            'id' => $request->id,
-            'user' => [
-                'id' => $request->user->id,
-                'full_name' => $request->user->full_name,
-                'email' => $request->user->email,
-                'avatar' => $request->user->avatar,
-            ],
-            'amount' => $request->amount,
-            'method' => $request->method,
-            'method_label' => $request->method_label,
-            'status' => $request->status,
-            'status_label' => $request->status_label,
-            'status_color' => $request->status_color,
-            'reference' => $request->payment_reference,
-            'proof_image' => $request->proof_image ? asset('storage/'.$request->proof_image) : null,
-            'created_at' => $request->created_at->toIso8601String(),
-        ];
-
-        if ($detailed) {
-            $data['admin_notes'] = $request->admin_notes;
-            $data['approved_at'] = $request->approved_at?->toIso8601String();
-            $data['approver'] = $request->approver ? [
-                'id' => $request->approver->id,
-                'full_name' => $request->approver->full_name,
-            ] : null;
-            $data['metadata'] = $request->metadata;
-        }
-
-        return $data;
     }
 }

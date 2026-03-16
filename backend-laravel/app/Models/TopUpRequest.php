@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\URL;
 
 class TopUpRequest extends Model
 {
@@ -116,7 +117,7 @@ class TopUpRequest extends Model
     /**
      * Mark as rejected.
      */
-    public function reject(User $admin, string $notes): self
+    public function reject(User $admin, ?string $notes = null): self
     {
         $this->update([
             'status' => self::STATUS_REJECTED,
@@ -168,6 +169,20 @@ class TopUpRequest extends Model
             self::STATUS_PROCESSING => 'blue',
             default => 'gray',
         };
+    }
+
+    public function getProofImageUrlAttribute(): ?string
+    {
+        if (! $this->proof_image) {
+            return null;
+        }
+
+        $ttlMinutes = (int) config('security.topup_proof_url_ttl_minutes', 10);
+        $expiresAt = now()->addMinutes(max(1, $ttlMinutes));
+
+        return URL::temporarySignedRoute('secure.topup-proof', $expiresAt, [
+            'topUpRequest' => $this->id,
+        ]);
     }
 
     /**

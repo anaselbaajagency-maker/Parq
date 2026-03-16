@@ -7,6 +7,8 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Listing } from '@/types/listing';
 import { useRouter } from 'next/navigation';
 import { useFavorite } from '@/hooks/useFavorite';
+import Image from 'next/image';
+import { parseImageUrl } from '@/lib/api';
 
 export default function ListingCard({ item }: { item: Listing }) {
     const t = useTranslations('Header');
@@ -17,8 +19,18 @@ export default function ListingCard({ item }: { item: Listing }) {
     const { isFavorited, toggleFavorite } = useFavorite(item.id, item.is_favorited);
 
     // Derived display values
-    const displayImage = item.image_hero || item.main_image || (item.images && item.images.length > 0 ? item.images[0].image_path : null);
-    const displayPrice = `${item.price}`;
+    const rawImage = item.image_hero || item.main_image || (item.images && item.images.length > 0 ? item.images[0].image_path : null);
+    const displayImage = rawImage ? parseImageUrl(rawImage) : null;
+
+    // Clean up the price literal coming from DB (e.g. "4500.00 DH" -> "4500.00")
+    const displayPrice = item.price ? item.price.toString().replace(/dhs?|dh|\/jour|\/ jour/gi, '').trim() : '';
+
+    // Determine the correct unit, avoiding duplicates
+    const isRent = item.type === 'rent';
+    let finalUnit = item.price_unit || (isRent ? 'DH/jour' : 'DH');
+    if (item.price_type === 'daily' && !finalUnit.toLowerCase().includes('jour')) {
+        finalUnit += ` ${t('per_day')}`;
+    }
 
     const getCategoryName = () => {
         if (!item.category) return undefined;
@@ -53,8 +65,8 @@ export default function ListingCard({ item }: { item: Listing }) {
                         src={displayImage}
                         alt={displayTitle}
                         className={styles.image}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
                         onError={() => setHasError(true)}
-                        loading="lazy"
                     />
                 ) : (
                     <div className={styles.placeholder}>
@@ -90,8 +102,7 @@ export default function ListingCard({ item }: { item: Listing }) {
                 </div>
                 <p className={styles.location}>{getLocalizedCity() || item.city?.name}</p>
                 <p className={styles.price}>
-                    <span className={styles.priceValue}>{displayPrice} {item.price_unit}</span>
-                    <span className={styles.priceUnit}> {item.price_type === 'daily' ? t('per_day') : ''}</span>
+                    <span className={styles.priceValue}>{displayPrice} <span className={styles.priceUnit}>{finalUnit}</span></span>
                 </p>
             </div>
         </article>

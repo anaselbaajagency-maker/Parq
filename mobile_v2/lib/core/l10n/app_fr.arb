@@ -1,0 +1,37 @@
+{
+    "@@locale": "fr",
+    "home": "Accueil",
+    "rent": "Louer",
+    "buy": "Acheter",
+    "listItem": "Ajouter votre annonce",
+    "login": "Connexion",
+    "signup": "Inscription",
+    "dashboard": "Tableau de bord",
+    "myListings": "Mes annonces",
+    "adminDashboard": "Administrateur",
+    "logout": "Déconnexion",
+    "helpCenter": "Centre d'aide",
+    
+    "heroTitle": "La Prime d'",
+    "heroTitleAccent": "Excellence",
+    "heroSubtitle": "Plateforme centralisée et sécurisée pour la gestion de votre flotte et la location.",
+    "btnRent": "Je veux louer",
+    "btnBuy": "Je veux acheter",
+    "searchPlaceholder": "Que cherchez-vous ?",
+    
+    "loginTitle": "Bon retour",
+    "loginSubtitle": "Connectez-vous pour gérer vos annonces et réservations.",
+    "emailLabel": "E-mail",
+    "passwordLabel": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "loginBtn": "Se connecter",
+    "loggingIn": "Connexion en cours...",
+    "continueGoogle": "Continuer avec Google",
+    "noAccount": "Vous n'avez pas de compte ?",
+    "signupLink": "Inscrivez-vous",
+    
+    "walletTitle": "Mon Portefeuille",
+    "currentBalance": "Solde Actuel",
+    "dailyExpense": "Dépense Quotidienne",
+    "topUp": "Recharger le compte"
+}

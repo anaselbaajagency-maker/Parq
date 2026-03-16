@@ -18,9 +18,14 @@
 
 - Branch: `main`
 - Purpose: stable, monitored, backups enabled
+- Queue: `QUEUE_CONNECTION=redis` with dedicated worker process
+- Observability: enable structured logs + Sentry DSN variables
+- Performance: enable `DB_QUERY_PROFILING_ENABLED=true` and configure `PERF_PUBLIC_CACHE_TTL_SECONDS`
+- Frontend assets: optionally route static assets via `NEXT_PUBLIC_CDN_URL`
 
 ## Secrets / Config
 
 - Never commit real `.env` secrets to git
 - Use GitHub Environments + Secrets for deploy workflows
 - Set backend CORS allowlist with `CORS_ALLOWED_ORIGINS` per environment
+- Set `MAINTENANCE_BYPASS_TOKEN` for emergency admin access during maintenance mode

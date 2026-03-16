@@ -1,0 +1,1 @@
+<?php namespace App\Models; use CodeIgniter\Model; class TopUpRequestModel extends Model { protected $table = 'top_up_requests'; protected $useTimestamps = true; protected $createdField = 'created_at'; protected $updatedField = 'updated_at'; }

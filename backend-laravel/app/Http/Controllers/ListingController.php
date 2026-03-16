@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Listing\LegacyListingStoreRequest;
+use App\Http\Requests\Listing\LegacyListingUpdateRequest;
 use App\Models\Listing;
 use App\Models\ListingCar;
 use App\Models\ListingDriver;
@@ -87,37 +89,9 @@ class ListingController extends Controller implements HasMiddleware
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(LegacyListingStoreRequest $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'category_id' => 'required|exists:categories,id',
-            'city_id' => 'nullable|exists:cities,id',
-            'price' => 'required|numeric',
-            'description' => 'required|string',
-            'attributes' => 'nullable|array',
-            'images' => 'nullable|array',
-            'images.*' => 'image|max:10240', // Increased to 10MB
-            'type' => 'nullable|string', // rent/buy
-
-            // Technical Specs (Optional based on category)
-            'brand' => 'nullable|string',
-            'model' => 'nullable|string',
-            'year' => 'nullable|integer',
-            'fuel_type' => 'nullable|string',
-            'gearbox' => 'nullable|string',
-            'seats' => 'nullable|integer',
-            'tonnage' => 'nullable|string',
-            'power' => 'nullable|string',
-            'condition' => 'nullable|string',
-            'with_driver' => 'nullable|boolean',
-            'capacity' => 'nullable|numeric',
-            'air_conditioning' => 'nullable|boolean',
-            'usage_type' => 'nullable|string',
-            'license_type' => 'nullable|string',
-            'experience_years' => 'nullable|integer',
-            'is_available' => 'nullable|boolean',
-        ]);
+        $validated = $request->validated();
 
         $imagePaths = [];
         if ($request->hasFile('images')) {
@@ -207,7 +181,7 @@ class ListingController extends Controller implements HasMiddleware
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Listing $listing)
+    public function update(LegacyListingUpdateRequest $request, Listing $listing)
     {
         $this->authorize('update', $listing);
 
@@ -235,13 +209,6 @@ class ListingController extends Controller implements HasMiddleware
         }
 
         $validated['images'] = $currentImages;
-
-        // Validate images if new ones are uploaded
-        if ($request->hasFile('images')) {
-            $request->validate([
-                'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:10240',
-            ]);
-        }
 
         $listing->update($validated);
 

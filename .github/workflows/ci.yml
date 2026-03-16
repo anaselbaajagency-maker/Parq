@@ -27,6 +27,7 @@ jobs:
           php-version: "8.3"
           coverage: none
           extensions: mbstring, pdo_sqlite, sqlite3
+          tools: phpstan
 
       - name: Install Composer dependencies
         uses: ramsey/composer-install@v3
@@ -47,6 +48,9 @@ jobs:
 
       - name: Lint (Pint)
         run: ./vendor/bin/pint --test
+
+      - name: Static analysis (PHPStan)
+        run: phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=512M
 
   frontend:
     name: Frontend (Next.js)
@@ -70,6 +74,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Frontend quality report
+        run: npm run quality:report
 
       - name: Build
         env:

@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Listing extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'user_id',
         'category_id',
@@ -31,6 +34,7 @@ class Listing extends Model
         'daily_cost',
         'is_featured',
         'published_at',
+        'rejection_reason',
     ];
 
     protected $casts = [

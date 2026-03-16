@@ -1,11 +1,9 @@
-import AdminWalletsClient from './AdminWalletsClient';
-import { getTranslations } from 'next-intl/server';
+import WalletAdminClient from './WalletAdminClient';
 
-export async function generateMetadata({ params: { locale } }: any) {
-    const t = await getTranslations({ locale, namespace: 'Admin' });
+export async function generateMetadata() {
     return { title: "Gestion des Portefeuilles" };
 }
 
 export default function AdminWalletsPage() {
-    return <AdminWalletsClient />;
+    return <WalletAdminClient />;
 }

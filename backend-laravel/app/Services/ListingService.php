@@ -45,6 +45,12 @@ class ListingService
                 $this->handleImages($listing, $data['images']);
             }
 
+            // Notify admins
+            $admins = \App\Models\User::where('role', 'ADMIN')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\NewListingNotification($listing));
+            }
+
             return $listing->load(['images', 'car', 'machinery', 'transport', 'driver']);
         });
     }

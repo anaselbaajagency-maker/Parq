@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../../../navigation';
 import { useAuthStore } from '@/lib/auth-store';
 import { useLocale } from 'next-intl';
 import {
-    Save, Loader2, Languages, Type, LayoutTemplate, Database, Check, AlertTriangle
+    Save, Loader2, Languages, Type, LayoutTemplate, Database, Check, AlertTriangle, ShieldAlert
 } from 'lucide-react';
 import {
     fetchSettings,
@@ -16,6 +16,7 @@ import styles from './hero.module.css';
 
 export default function HeroHomepage() {
     const { user } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
     const router = useRouter();
     const [loading, setLoading] = useState(true);
 
@@ -29,18 +30,27 @@ export default function HeroHomepage() {
     const [originalData, setOriginalData] = useState<any>(null);
     const [savingHero, setSavingHero] = useState(false);
     const [connected, setConnected] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
         if (!user || user.role !== 'ADMIN') {
-            router.push('/dashboard');
+            router.replace('/tableau-de-bord');
             return;
         }
         loadData();
-    }, [user, router]);
+    }, [isMounted, user, router]);
 
     const hasChanges = JSON.stringify(heroData) !== JSON.stringify(originalData);
 
     async function loadData() {
+        setLoading(true);
+        setError(null);
         try {
             const settings = await fetchSettings();
             if (settings) {
@@ -56,9 +66,15 @@ export default function HeroHomepage() {
                 setOriginalData(data);
                 setConnected(true);
             }
-        } catch (error) {
-            console.error('Failed to load hero data:', error);
-            setConnected(false);
+        } catch (error: any) {
+            const errorMessage = error?.message || (typeof error === 'string' ? error : '');
+            if (errorMessage.includes('ACCESS_DENIED')) {
+                setError('ACCESS_DENIED');
+            } else {
+                console.error('Failed to load hero data:', error);
+                setConnected(false);
+                setError('FETCH_ERROR');
+            }
         } finally {
             setLoading(false);
         }
@@ -76,9 +92,11 @@ export default function HeroHomepage() {
             } else {
                 showAlert('error', 'Failed to update hero settings.', 'Error');
             }
-        } catch (error) {
-            console.error('Save error:', error);
-            showAlert('error', 'An unexpected error occurred.', 'Error');
+        } catch (error: any) {
+            if (error.message !== 'ACCESS_DENIED') {
+                console.error('Save error:', error);
+                showAlert('error', 'An unexpected error occurred.', 'Error');
+            }
         } finally {
             setSavingHero(false);
         }
@@ -89,6 +107,40 @@ export default function HeroHomepage() {
             <div className="flex flex-col items-center justify-center min-h-screen bg-[#f8fafc]">
                 <Loader2 className="animate-spin text-[#ffb800] mb-4" size={40} />
                 <p className="text-gray-500 font-medium">Chargement...</p>
+            </div>
+        );
+    }
+
+    if (error === 'ACCESS_DENIED' || (!user || user.role !== 'ADMIN')) {
+        return (
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger les paramètres de la page d'accueil.</p>
+                    <button onClick={loadData} className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors">Réessayer</button>
+                </div>
             </div>
         );
     }

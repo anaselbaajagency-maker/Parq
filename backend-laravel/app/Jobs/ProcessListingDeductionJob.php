@@ -19,21 +19,27 @@ class ProcessListingDeductionJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * The number of times the job may be attempted.
-     */
-    public int $tries = 3;
-
-    /**
-     * The number of seconds to wait before retrying the job.
-     */
-    public int $backoff = 60;
-
-    /**
      * Create a new job instance.
      */
     public function __construct(protected Listing $listing)
     {
-        //
+        $this->onQueue((string) config('queue.defaults.billing_queue', 'billing'));
+    }
+
+    public function tries(): int
+    {
+        return max((int) config('queue.defaults.tries', 3), 1);
+    }
+
+    public function backoff(): array
+    {
+        $baseBackoff = max((int) config('queue.defaults.backoff_seconds', 60), 1);
+
+        return [
+            $baseBackoff,
+            $baseBackoff * 5,
+            $baseBackoff * 15,
+        ];
     }
 
     /**
@@ -122,5 +128,14 @@ class ProcessListingDeductionJob implements ShouldQueue
                 Log::error('Failed to send low balance notification: '.$e->getMessage());
             }
         }
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        Log::error('ProcessListingDeductionJob moved to dead-letter queue', [
+            'listing_id' => $this->listing->id ?? null,
+            'user_id' => $this->listing->user_id ?? null,
+            'message' => $exception->getMessage(),
+        ]);
     }
 }

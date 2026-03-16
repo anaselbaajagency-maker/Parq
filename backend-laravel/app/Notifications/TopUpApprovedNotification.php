@@ -8,10 +8,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class TopUpApprovedNotification extends Notification implements ShouldQueue
+class TopUpApprovedNotification extends Notification
 {
-    use Queueable;
-
     protected TopUpRequest $topUpRequest;
 
     /**
@@ -58,7 +56,8 @@ class TopUpApprovedNotification extends Notification implements ShouldQueue
             'type' => 'topup_approved',
             'amount' => $this->topUpRequest->amount,
             'method' => $this->topUpRequest->method,
-            'message' => 'Recharge de '.$this->topUpRequest->amount.' SOLD DIRHAM approuvée.',
+            'title' => 'Recharge Approuvée',
+            'message' => 'Recharge de '.$this->topUpRequest->amount.' DH approuvée.',
             'action_url' => '/wallet',
             'action_label' => 'Voir portefeuille',
         ];

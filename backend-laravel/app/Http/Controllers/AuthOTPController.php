@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\OtpSendRequest;
+use App\Http\Requests\Auth\OtpVerifyRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -10,18 +13,33 @@ use Illuminate\Support\Facades\Log;
 
 class AuthOTPController extends Controller
 {
+    protected function issueToken(User $user, Request $request): string
+    {
+        $deviceName = (string) $request->input('device_name', 'mobile-app');
+        $expirationMinutes = (int) (config('sanctum.expiration') ?? 0);
+        $expiresAt = $expirationMinutes > 0 ? now()->addMinutes($expirationMinutes) : null;
+
+        $tokenResult = $user->createToken($deviceName, ['mobile'], $expiresAt);
+
+        // Update the token metadata
+        $tokenResult->accessToken->forceFill([
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ])->save();
+
+        return $tokenResult->plainTextToken;
+    }
+
     /**
      * Send OTP to the given phone number.
      *
      * POST /api/auth/otp/send
      */
-    public function sendOTP(Request $request)
+    public function sendOTP(OtpSendRequest $request)
     {
-        $request->validate([
-            'phone' => 'required|string|min:10',
-        ]);
+        $validated = $request->validated();
 
-        $phone = $request->phone;
+        $phone = $validated['phone'];
         // Generate a 6-digit code
         $code = (string) rand(100000, 999999);
         $expiresAt = Carbon::now()->addMinutes(10);
@@ -50,16 +68,13 @@ class AuthOTPController extends Controller
      *
      * POST /api/auth/otp/verify
      */
-    public function verifyOTP(Request $request)
+    public function verifyOTP(OtpVerifyRequest $request)
     {
-        $request->validate([
-            'phone' => 'required|string',
-            'code' => 'required|string|size:6',
-        ]);
+        $validated = $request->validated();
 
         $otp = DB::table('otps')
-            ->where('phone', $request->phone)
-            ->where('code', $request->code)
+            ->where('phone', $validated['phone'])
+            ->where('code', $validated['code'])
             ->where('expires_at', '>', Carbon::now())
             ->whereNull('verified_at')
             ->orderBy('created_at', 'desc')
@@ -76,28 +91,28 @@ class AuthOTPController extends Controller
         DB::table('otps')->where('id', $otp->id)->update(['verified_at' => Carbon::now()]);
 
         // Find or create user
-        $user = User::where('phone', $request->phone)->first();
+        $user = User::where('phone', $validated['phone'])->first();
 
         if (! $user) {
             // Create user with a dummy email if needed (Laravel users usually need email)
             // Or use phone as the unique identifier if the system supports it.
             // For now, let's create a placeholder email to satisfy constraints.
             $user = User::create([
-                'full_name' => 'User '.substr($request->phone, -4),
-                'email' => $request->phone.'@parq.ma',
-                'phone' => $request->phone,
+                'full_name' => 'User '.substr((string) $validated['phone'], -4),
+                'email' => $validated['phone'].'@parq.ma',
+                'phone' => $validated['phone'],
                 'role' => 'user',
                 'password' => null, // No password for OTP users
             ]);
         }
 
         // Create token
-        $token = $user->createToken('parq-mobile-auth')->plainTextToken;
+        $token = $this->issueToken($user, $request);
 
         return response()->json([
             'success' => true,
             'message' => 'Authentication successful',
-            'user' => $user,
+            'user' => (new UserResource($user))->resolve(),
             'token' => $token,
         ]);
     }

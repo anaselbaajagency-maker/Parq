@@ -1,8 +1,9 @@
 "use client";
 
 import { Transaction } from '@/types/wallet';
-import { ArrowUpRight, ArrowDownLeft, Gift, AlertCircle, Info, FileText } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Gift, AlertCircle, Info, FileText, Eye, XCircle } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
+import { useState } from 'react';
 import styles from '../../app/[locale]/tableau-de-bord/wallet/wallet.module.css';
 
 interface TransactionListProps {
@@ -12,6 +13,7 @@ interface TransactionListProps {
 export default function TransactionList({ transactions }: TransactionListProps) {
     const t = useTranslations('Wallet');
     const locale = useLocale();
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     const getIcon = (type: Transaction['type'], status: Transaction['status']) => {
         if (status === 'failed') return <AlertCircle size={20} className="text-red-600" />;
@@ -55,27 +57,33 @@ export default function TransactionList({ transactions }: TransactionListProps) 
                             <h4>
                                 {locale === 'ar' && tx.description_ar ? tx.description_ar : tx.description}
                             </h4>
-                            <p>
+                            <div className="text-gray-500 text-sm">
                                 {new Date(tx.created_at).toLocaleDateString()}
                                 {tx.listing_title && (
                                     <> • <span className="font-medium text-gray-800">{tx.listing_title}</span></>
                                 )}
                                 {tx.receipt_url && (
-                                    <a
-                                        href={tx.receipt_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="ml-2 inline-flex items-center text-xs text-blue-600 hover:underline"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <FileText size={12} className="mr-1" />
-                                        {t('receipt.view')}
-                                    </a>
+                                    <div className="mt-3">
+                                        <div
+                                            className={styles.receiptThumbnail}
+                                            onClick={() => setLightboxImage(tx.receipt_url || null)}
+                                            title={t('receipt.view')}
+                                        >
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={tx.receipt_url}
+                                                alt="Receipt Proof"
+                                            />
+                                            <div className={styles.receiptOverlay}>
+                                                <Eye size={16} />
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
-                                <span className={`ml-2 ${styles.statusBadge} ${getStatusClass(tx.status)}`}>
+                                <span className={`${styles.statusBadge} ${getStatusClass(tx.status)}`}>
                                     {t(`status.${tx.status}`)}
                                 </span>
-                            </p>
+                            </div>
                         </div>
                     </div>
                     <div className={`${styles.transactionAmount} ${tx.type === 'deduction' ? styles.negative : styles.positive}`}>
@@ -83,6 +91,19 @@ export default function TransactionList({ transactions }: TransactionListProps) 
                     </div>
                 </div>
             ))}
+
+            {/* Lightbox Pop-up */}
+            {lightboxImage && (
+                <div className={styles.lightboxOverlay} onClick={() => setLightboxImage(null)}>
+                    <div className={styles.lightboxContent} onClick={e => e.stopPropagation()}>
+                        <button className={styles.lightboxClose} onClick={() => setLightboxImage(null)}>
+                            <XCircle size={24} />
+                        </button>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={lightboxImage} alt="Large receipt preview" className={styles.lightboxImage} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

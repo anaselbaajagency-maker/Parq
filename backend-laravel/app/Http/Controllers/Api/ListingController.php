@@ -2,17 +2,25 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\HandlesCacheableJsonResponses;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreListingRequest;
 use App\Http\Requests\UpdateListingRequest;
+use App\Http\Resources\ListingResource;
+use App\Jobs\OptimizeListingImagesJob;
 use App\Models\Listing;
 use App\Notifications\ListingApprovedNotification;
+use App\Notifications\ListingStatusChangedNotification;
 use App\Services\ListingService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class ListingController extends Controller
 {
+    use HandlesCacheableJsonResponses;
+
     protected $listingService;
 
     public function __construct(ListingService $listingService)
@@ -62,7 +70,7 @@ class ListingController extends Controller
         } else {
             $user = Auth::guard('sanctum')->user();
             $isOwner = $user && $request->filled('user_id') && $request->user_id == $user->id;
-            $isAdmin = $user && $user->role === 'ADMIN'; // Assuming role logic
+            $isAdmin = $user && $user->isAdmin();
 
             if (! $isOwner && ! $isAdmin) {
                 $query->where('status', 'active');
@@ -73,10 +81,10 @@ class ListingController extends Controller
         $sort = $request->input('sort', 'newest');
         switch ($sort) {
             case 'price_asc':
-                $query->orderBy('price', 'asc');
+                $query->orderBy('price', 'asc')->orderBy('id', 'asc');
                 break;
             case 'price_desc':
-                $query->orderBy('price', 'desc');
+                $query->orderBy('price', 'desc')->orderBy('id', 'desc');
                 break;
             case 'nearest':
                 if ($request->filled('latitude') && $request->filled('longitude')) {
@@ -84,19 +92,33 @@ class ListingController extends Controller
                     // For brevity, just sort by ID or simple SQL math if needed,
                     // but standard Eloquent doesn't support distance sort easily without RAW
                     // Skipping complex geo-sort for this snippet, fallback to newest
-                    $query->latest();
+                    $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
+                } else {
+                    $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
                 }
                 break;
             case 'featured':
-                $query->where('is_featured', true)->latest();
+                $query->where('is_featured', true)->orderBy('created_at', 'desc')->orderBy('id', 'desc');
                 break;
             case 'newest':
             default:
-                $query->latest();
+                $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
                 break;
         }
 
-        return response()->json($query->paginate(15));
+        $payloadResolver = fn () => $this->paginateQuery($query, $request, (int) config('performance.pagination.default_per_page', 15));
+        if ($this->canUsePublicListingsCache($request)) {
+            return $this->cacheableJson(
+                $request,
+                $this->cacheKeyFromRequest('listings:v'.$this->listingCacheVersion().':index', $request),
+                $this->publicCacheTtlSeconds(),
+                $payloadResolver
+            );
+        }
+
+        return response()->json($payloadResolver())->withHeaders([
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     /**
@@ -119,11 +141,18 @@ class ListingController extends Controller
             $validated['images'] = $imagePaths;
         }
 
-        $userId = Auth::guard('sanctum')->id() ?? $validated['user_id'] ?? 1;
+        $userId = Auth::guard('sanctum')->id();
+        if (! $userId) {
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
 
         $listing = $this->listingService->createListing($validated, $userId);
+        OptimizeListingImagesJob::dispatch($listing->id);
+        $this->bumpListingCacheVersion();
 
-        return response()->json($listing, 201);
+        return response()->json((new ListingResource($listing))->resolve(), 201);
     }
 
     /**
@@ -131,19 +160,37 @@ class ListingController extends Controller
      */
     public function show($id)
     {
-        $query = Listing::with(['category', 'city', 'images', 'user', 'car', 'machinery', 'transport', 'driver']);
+        $request = request();
+        $isGuest = ! Auth::guard('sanctum')->check();
 
-        if (is_numeric($id)) {
-            $listing = $query->where('id', $id)->firstOrFail();
-        } else {
-            $listing = $query->where('slug', $id)->firstOrFail();
+        if ($isGuest) {
+            return $this->cacheableJson(
+                $request,
+                'listings:v'.$this->listingCacheVersion().':show:'.sha1((string) $id),
+                $this->publicCacheTtlSeconds(),
+                function () use ($id) {
+                    $query = Listing::with(['category', 'city', 'images', 'user', 'car', 'machinery', 'transport', 'driver'])
+                        ->where('status', 'active');
+
+                    $listing = is_numeric($id)
+                        ? $query->where('id', $id)->firstOrFail()
+                        : $query->where('slug', $id)->firstOrFail();
+
+                    return (new ListingResource($listing))->resolve();
+                }
+            );
         }
+
+        $query = Listing::with(['category', 'city', 'images', 'user', 'car', 'machinery', 'transport', 'driver']);
+        $listing = is_numeric($id)
+            ? $query->where('id', $id)->firstOrFail()
+            : $query->where('slug', $id)->firstOrFail();
 
         // Visibility Restriction: Only owner or admin can see non-active listings
         if ($listing->status !== 'active') {
             $user = Auth::guard('sanctum')->user();
             $isOwner = $user && $user->id === $listing->user_id;
-            $isAdmin = $user && ($user->role === 'admin' || $user->id === 1);
+            $isAdmin = $user && $user->isAdmin();
 
             if (! $isOwner && ! $isAdmin) {
                 return response()->json([
@@ -153,7 +200,9 @@ class ListingController extends Controller
             }
         }
 
-        return response()->json($listing);
+        return response()->json((new ListingResource($listing))->resolve())->withHeaders([
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     /**
@@ -162,12 +211,16 @@ class ListingController extends Controller
     public function update(UpdateListingRequest $request, $id)
     {
         $listing = Listing::findOrFail($id);
+        $user = Auth::guard('sanctum')->user();
 
-        if ($listing->user_id !== Auth::id() && Auth::id() !== 1) {
-            // For testing ease, we might skip strict auth or assume ID 1 is owner
+        if (! $user || ($listing->user_id !== $user->id && ! $user->isAdmin())) {
+            return response()->json([
+                'message' => 'Unauthorized.',
+            ], 403);
         }
 
         $data = $request->validated();
+        $oldStatus = $listing->status;
 
         // Include files explicitly as they might not be in validated() if rules are basic
         if ($request->hasFile('image_hero')) {
@@ -187,8 +240,23 @@ class ListingController extends Controller
         ]);
 
         $updatedListing = $this->listingService->updateListing($listing, $data);
+        OptimizeListingImagesJob::dispatch($listing->id);
+        $this->bumpListingCacheVersion();
 
-        return response()->json($updatedListing);
+        if (isset($data['status']) && $data['status'] !== $oldStatus) {
+            $message = $data['status'] === 'paused' 
+                ? "Votre annonce a été mise en pause." 
+                : "Votre annonce est maintenant active.";
+                
+            $listing->user->notify(new ListingStatusChangedNotification(
+                $listing->id,
+                $listing->title,
+                $data['status'],
+                $message
+            ));
+        }
+
+        return response()->json((new ListingResource($updatedListing))->resolve());
     }
 
     /**
@@ -197,10 +265,40 @@ class ListingController extends Controller
     public function destroy($id)
     {
         $listing = Listing::findOrFail($id);
-        // Auth check...
+        $user = Auth::guard('sanctum')->user();
+
+        if (! $user || ($listing->user_id !== $user->id && ! $user->isAdmin())) {
+            return response()->json([
+                'message' => 'Unauthorized.',
+            ], 403);
+        }
+
         $listing->delete();
+        $this->bumpListingCacheVersion();
 
         return response()->json(['message' => 'Deleted successfully']);
+    }
+
+    /**
+     * DELETE /api/admin/listings/bulk-delete
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:listings,id',
+        ]);
+
+        $user = Auth::guard('sanctum')->user();
+        if (!$user || !$user->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $ids = $request->input('ids');
+        Listing::whereIn('id', $ids)->delete();
+        $this->bumpListingCacheVersion();
+
+        return response()->json(['message' => count($ids) . ' listings deleted successfully']);
     }
 
     /**
@@ -222,6 +320,7 @@ class ListingController extends Controller
         $listing->status = $isPaused ? 'active' : 'hidden';
         $listing->is_available = ($listing->status === 'active');
         $listing->save();
+        $this->bumpListingCacheVersion();
 
         return response()->json(['status' => $listing->status, 'is_available' => $listing->is_available]);
     }
@@ -277,7 +376,8 @@ class ListingController extends Controller
     {
         // Admin sees ALL listings (active, inactive, pending)
         $query = Listing::with(['category', 'city', 'user'])
-            ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc');
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -291,7 +391,9 @@ class ListingController extends Controller
             $query->where('status', $request->status);
         }
 
-        return $query->paginate(20);
+        return response()->json($this->paginateQuery($query, $request, 20))->withHeaders([
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     /**
@@ -318,9 +420,14 @@ class ListingController extends Controller
             });
         }
 
-        $perPage = $request->get('limit', 15);
+        $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
 
-        return response()->json($query->paginate($perPage));
+        return $this->cacheableJson(
+            $request,
+            $this->cacheKeyFromRequest('listings:v'.$this->listingCacheVersion().':category:'.$category, $request),
+            $this->publicCacheTtlSeconds(),
+            fn () => $this->paginateQuery($query, $request, (int) $request->get('limit', 15))
+        );
     }
 
     /**
@@ -328,16 +435,45 @@ class ListingController extends Controller
      */
     public function homepage()
     {
-        // Return latest active listings for homepage
-        $listings = Listing::with(['category', 'city', 'user', 'images'])
-            ->where('status', 'active')
-            ->orderBy('created_at', 'desc')
-            ->take(8)
-            ->get();
+        return $this->cacheableJson(
+            request(),
+            'listings:v'.$this->listingCacheVersion().':homepage',
+            $this->publicCacheTtlSeconds(),
+            function () {
+                $latest = Listing::with(['category', 'city', 'user', 'images'])
+                    ->where('status', 'active')
+                    ->orderBy('created_at', 'desc')
+                    ->take(8)
+                    ->get();
+
+                $featured = Listing::with(['category', 'city', 'user', 'images'])
+                    ->where('status', 'active')
+                    ->where('is_featured', true)
+                    ->orderBy('created_at', 'desc')
+                    ->take(4)
+                    ->get();
+
+                return [
+                    'latest' => ListingResource::collection($latest)->resolve(),
+                    'featured' => ListingResource::collection($featured)->resolve(),
+                ];
+            }
+        );
+    }
+
+    /**
+     * POST /api/admin/listings/{id}/toggle-featured
+     */
+    public function toggleFeatured($id)
+    {
+        $listing = Listing::findOrFail($id);
+        $listing->is_featured = ! $listing->is_featured;
+        $listing->save();
+        $this->bumpListingCacheVersion();
 
         return response()->json([
-            'latest' => $listings,
-            'featured' => $listings->take(4),
+            'message' => $listing->is_featured ? 'Listing marked as featured' : 'Listing removed from featured',
+            'is_featured' => $listing->is_featured
         ]);
     }
 
@@ -349,10 +485,18 @@ class ListingController extends Controller
         $listing = Listing::findOrFail($id);
         $listing->status = 'active';
         $listing->save();
+        $this->bumpListingCacheVersion();
 
         // Send Notification
         if ($listing->user) {
             $listing->user->notify(new ListingApprovedNotification($listing));
+            
+            $listing->user->notify(new ListingStatusChangedNotification(
+                $listing->id,
+                $listing->title,
+                'active',
+                "Votre annonce a été approuvée par l'administrateur."
+            ));
         }
 
         return response()->json(['message' => 'Listing approved', 'status' => 'active']);
@@ -363,12 +507,88 @@ class ListingController extends Controller
      */
     public function reject(Request $request, $id)
     {
+        $request->validate([
+            'reason' => 'required|string|max:1000',
+        ]);
+
         $listing = Listing::findOrFail($id);
         $listing->status = 'rejected';
-        // Optional: Save rejection reason if you have a column for it
-        // $listing->rejection_reason = $request->input('reason');
+        $listing->rejection_reason = $request->input('reason');
         $listing->save();
+        $this->bumpListingCacheVersion();
 
-        return response()->json(['message' => 'Listing rejected', 'status' => 'rejected']);
+        if ($listing->user) {
+            $listing->user->notify(new ListingStatusChangedNotification(
+                $listing->id,
+                $listing->title,
+                'rejected',
+                "Votre annonce a été rejetée par l'administrateur. Raison: " . $listing->rejection_reason
+            ));
+        }
+
+        return response()->json(['message' => 'Listing rejected', 'status' => 'rejected', 'rejection_reason' => $listing->rejection_reason]);
+    }
+
+    private function canUsePublicListingsCache(Request $request): bool
+    {
+        if (Auth::guard('sanctum')->check()) {
+            return false;
+        }
+
+        return ! $request->filled('user_id') && ! $request->filled('status');
+    }
+
+    private function paginateQuery(Builder $query, Request $request, int $defaultPerPage = 15): array
+    {
+        $perPage = $this->resolvePerPage($request, $defaultPerPage);
+
+        if ($this->wantsCursorPagination($request)) {
+            $cursorPaginator = $query->cursorPaginate(
+                $perPage,
+                ['*'],
+                'cursor',
+                $request->query('cursor')
+            );
+
+            return array_merge($cursorPaginator->toArray(), [
+                'pagination_type' => 'cursor',
+            ]);
+        }
+
+        $paginator = $query->paginate($perPage);
+
+        return array_merge($paginator->toArray(), [
+            'pagination_type' => 'offset',
+        ]);
+    }
+
+    private function wantsCursorPagination(Request $request): bool
+    {
+        $param = (string) config('performance.pagination.cursor_param', 'pagination');
+        $value = (string) config('performance.pagination.cursor_value', 'cursor');
+
+        return strtolower((string) $request->query($param, '')) === strtolower($value);
+    }
+
+    private function resolvePerPage(Request $request, int $defaultPerPage): int
+    {
+        $maxPerPage = max((int) config('performance.pagination.max_per_page', 50), 1);
+        $value = (int) $request->query('per_page', $request->query('limit', $defaultPerPage));
+
+        if ($value <= 0) {
+            $value = $defaultPerPage;
+        }
+
+        return min($value, $maxPerPage);
+    }
+
+    private function listingCacheVersion(): int
+    {
+        return (int) Cache::get('listings_cache_version', 1);
+    }
+
+    private function bumpListingCacheVersion(): void
+    {
+        Cache::forever('listings_cache_version', $this->listingCacheVersion() + 1);
     }
 }

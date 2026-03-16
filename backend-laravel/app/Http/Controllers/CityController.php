@@ -2,35 +2,43 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Concerns\HandlesCacheableJsonResponses;
+use App\Http\Requests\City\CityIndexRequest;
+use App\Http\Requests\City\CityStoreRequest;
+use App\Http\Requests\City\CityUpdateRequest;
+use Illuminate\Support\Facades\Cache;
 
 class CityController extends Controller
 {
+    use HandlesCacheableJsonResponses;
+
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(CityIndexRequest $request)
     {
-        if ($request->has('active') && $request->active == '1') {
-            return \App\Models\City::where('is_active', true)->get();
-        }
+        return $this->cacheableJson(
+            $request,
+            $this->cacheKeyFromRequest('cities:v'.$this->citiesCacheVersion().':index', $request),
+            $this->publicCacheTtlSeconds(),
+            function () use ($request) {
+                if ($request->boolean('active')) {
+                    return \App\Models\City::where('is_active', true)->get();
+                }
 
-        return \App\Models\City::all();
+                return \App\Models\City::all();
+            }
+        );
     }
 
-    public function store(Request $request)
+    public function store(CityStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'name_fr' => 'nullable|string|max:255',
-            'name_ar' => 'nullable|string|max:255',
-            'slug' => 'required|string|unique:cities,slug',
-            'region' => 'nullable|string',
-            'country' => 'nullable|string',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
-        return \App\Models\City::create($validated);
+        $city = \App\Models\City::create($validated);
+        $this->bumpCitiesCacheVersion();
+
+        return $city;
     }
 
     /**
@@ -44,21 +52,14 @@ class CityController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $id)
+    public function update(CityUpdateRequest $request, $id)
     {
         $city = \App\Models\City::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'name_fr' => 'nullable|string|max:255',
-            'name_ar' => 'nullable|string|max:255',
-            'slug' => 'sometimes|string|unique:cities,slug,'.$id,
-            'region' => 'nullable|string',
-            'country' => 'nullable|string',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $city->update($validated);
+        $this->bumpCitiesCacheVersion();
 
         return $city;
     }
@@ -70,7 +71,36 @@ class CityController extends Controller
     {
         $city = \App\Models\City::findOrFail($id);
         $city->delete();
+        $this->bumpCitiesCacheVersion();
 
         return response()->noContent();
+    }
+
+    /**
+     * Bulk delete cities.
+     */
+    public function bulkDestroy(\Illuminate\Http\Request $request)
+    {
+        $ids = $request->input('ids', []);
+        
+        if (!empty($ids)) {
+            \App\Models\City::whereIn('id', $ids)->delete();
+            $this->bumpCitiesCacheVersion();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => count($ids) . ' ville(s) supprimée(s) avec succès'
+        ]);
+    }
+
+    private function citiesCacheVersion(): int
+    {
+        return (int) Cache::get('cities_cache_version', 1);
+    }
+
+    private function bumpCitiesCacheVersion(): void
+    {
+        Cache::forever('cities_cache_version', $this->citiesCacheVersion() + 1);
     }
 }

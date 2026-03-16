@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '@/lib/auth-store';
 import { useTranslations } from 'next-intl';
 import { Link } from '../../../navigation';
 import {
     Package, MessageSquare,
-    Plus, Wallet, Eye, ChevronRight, Loader2, TrendingDown, Gift, X
+    Plus, Wallet, Eye, ChevronRight, Loader2, TrendingDown, Gift, X, Bell
 } from 'lucide-react';
 import {
     fetchDashboardStats,
@@ -16,6 +16,7 @@ import {
     DashboardStats,
     DashboardActivity,
     PerformanceData,
+    fetchUserProfile,
     api
 } from '@/lib/api';
 import { WalletBalance } from '@/types/wallet';
@@ -25,7 +26,8 @@ import { useAlert } from '@/context/AlertContext';
 import styles from './dashboard.module.css';
 
 export default function DashboardClient() {
-    const { user } = useAuthStore();
+    const { user, isAuthenticated } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
     const t = useTranslations('Dashboard');
     const { showAlert } = useAlert();
 
@@ -38,12 +40,12 @@ export default function DashboardClient() {
     const [showWelcome, setShowWelcome] = useState(false);
 
     useEffect(() => {
-        // Check if we should show welcome message (e.g., query param or checking wallet for bonus)
+        // Check if we should show welcome message
         const hasSeenWelcome = localStorage.getItem('parq_welcome_seen');
-        if (!hasSeenWelcome) {
+        if (!hasSeenWelcome && user?.email_verified_at) {
             setShowWelcome(true);
         }
-    }, []);
+    }, [user?.email_verified_at]);
 
     const dismissWelcome = () => {
         setShowWelcome(false);
@@ -51,34 +53,64 @@ export default function DashboardClient() {
     };
 
     useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    const updateUser = useAuthStore(state => state.updateUser);
+    const initialized = useRef(false);
+    const lastUserId = useRef<string | null>(null);
+
+    useEffect(() => {
         async function loadDashboardData() {
-            if (!user?.id) return;
+            if (!isMounted) return;
+            if (initialized.current && lastUserId.current === user?.id) return;
+
+            if (!user?.id) {
+                // console.log('[DashboardClient] Skipping load: No user ID ready');
+                if (!isAuthenticated) {
+                    setLoading(false);
+                }
+                return;
+            }
 
             try {
                 // Fetch all data in parallel
-                const [statsData, activityData, listings, perfData, walletData] = await Promise.all([
+                const [statsData, activityData, listings, perfData, walletData, profileRes] = await Promise.all([
                     fetchDashboardStats(user.id),
                     fetchDashboardActivity(user.id),
                     fetchUserListings(user.id),
                     fetchDashboardPerformance(user.id),
-                    api.wallet.getBalance()
+                    api.wallet.getBalance(),
+                    fetchUserProfile(user.id).catch(() => null)
                 ]);
 
                 if (statsData) setStats(statsData);
-                setActivity(activityData);
-                setListingsCount(listings.length);
+                setActivity(activityData || []);
+                setListingsCount(listings?.length || 0);
                 if (perfData) setPerformance(perfData);
                 if (walletData) setWallet(walletData);
-            } catch (error) {
-                console.error('Failed to load dashboard data:', error);
-                showAlert('error', 'Impossible de charger le tableau de bord. Veuillez rafraîchir la page.', 'Erreur');
+
+                // Update user in store if profile fetched successfully
+                if (profileRes?.user) {
+                    updateUser(profileRes.user as any);
+                }
+
+                initialized.current = true;
+                lastUserId.current = user?.id || null;
+            } catch (error: any) {
+                // If it's a 401, don't show alert here, the layout handles it
+                if (error?.message?.includes('401') || error?.message?.includes('429')) {
+                    return;
+                }
+                console.error('[DashboardClient] Error loading dashboard data:', error);
+                showAlert('error', t('common.error_loading_dashboard') || 'Impossible de charger le tableau de bord. Veuillez rafraîchir la page.', 'Erreur');
             } finally {
                 setLoading(false);
             }
         }
 
         loadDashboardData();
-    }, [user]);
+    }, [user?.id, isMounted, isAuthenticated]);
 
 
     // Fallback stats when API data is not available
@@ -95,17 +127,12 @@ export default function DashboardClient() {
             icon: Eye,
             trend: stats?.views_trend || '+0%'
         },
-        {
-            label: t('summary.daily_expense', { defaultValue: 'Dépense Quotidienne' }),
-            value: `${wallet?.daily_expense || 0} DH`,
-            icon: TrendingDown,
-            trend: 'Par jour'
-        },
+
         {
             label: t('stats.balance'),
             value: `${stats?.balance?.toLocaleString() || '0'} DH`,
             icon: Wallet,
-            trend: 'Available',
+            trend: t('available') || 'Available',
             isBalance: true
         },
     ];
@@ -129,6 +156,8 @@ export default function DashboardClient() {
         );
     }
 
+    const isEmailVerified = !!user?.email_verified_at;
+
     return (
         <div className={styles.dashboardContent}>
             {/* Header */}
@@ -136,6 +165,32 @@ export default function DashboardClient() {
                 <h1 className={styles.dashTitle}>{t('greeting', { name: user?.full_name?.split(' ')[0] || '' })}</h1>
                 <p className={styles.dashSubtitle}>{t('greeting_subtitle')}</p>
             </header>
+
+            {/* Verification Banner */}
+            {!isEmailVerified && (
+                <div className={`${styles.welcomeBanner} ${styles.verificationBanner}`}>
+                    <div className={styles.welcomeContent}>
+                        <div className={`${styles.welcomeIcon} ${styles.verificationIcon}`}>
+                            <Bell size={24} color="white" />
+                        </div>
+                        <div className={styles.welcomeText}>
+                            <h3 className={styles.welcomeTitle} style={{ color: '#78350f', fontWeight: 800 }}>{t('verification.title')}</h3>
+                            <p className={styles.welcomeDesc} style={{ color: '#92400e' }}>
+                                {t('verification.desc')}
+                            </p>
+
+                            <div className="mt-3">
+                                <Link
+                                    href="/account/verify-email"
+                                    className={styles.verificationBtn}
+                                >
+                                    {t('verification.button')}
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Welcome Bonus Banner */}
             {showWelcome && (
@@ -155,43 +210,57 @@ export default function DashboardClient() {
                 </div>
             )}
 
-            {/* Wallet Quick Awareness */}
-            {wallet && wallet.days_remaining !== undefined && (
-                <div className={styles.walletSection}>
-                    <LowBalanceAlert
-                        daysRemaining={wallet.days_remaining}
-                        balance={wallet.balance}
-                        isCritical={wallet.critical_balance_warning}
-                    />
-                    <div className={styles.walletGrid}>
+            {/* Top Widgets Section - Mockup Layout */}
+            <div className={styles.topWidgetsContainer}>
+                {/* Wallet Quick Awareness */}
+                {wallet && wallet.days_remaining !== undefined && (
+                    <div className="w-full">
+                        <LowBalanceAlert
+                            daysRemaining={wallet.days_remaining}
+                            balance={wallet.balance}
+                            isCritical={wallet.critical_balance_warning}
+                        />
                         <WalletSummaryCard
                             balance={wallet.balance}
                             dailyExpense={wallet.daily_expense}
                             daysRemaining={wallet.days_remaining}
                         />
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Stats Grid */}
-            <div className={styles.statsGrid}>
-                {displayStats.map((stat, i) => (
-                    <div key={i} className={styles.statCard}>
-                        <div className={styles.statHeader}>
-                            <stat.icon size={20} className={styles.statIcon} />
-                            {(stat as any).isBalance ? (
-                                <Link href="/tableau-de-bord/wallet" className={styles.addBalanceBtn}>
-                                    <Plus size={14} />
-                                    <span>{t('add_new')}</span>
-                                </Link>
-                            ) : (
+                {/* Stats Grid */}
+                <div className={styles.statsGrid}>
+                    {displayStats.filter((s: any) => !s.isBalance).map((stat, i) => (
+                        <div key={i} className={styles.statCard}>
+                            <div className={styles.statHeader}>
+                                <div className={styles.statIcon}>
+                                    <stat.icon size={20} />
+                                </div>
                                 <span className={styles.statTrend}>{stat.trend}</span>
-                            )}
+                            </div>
+                            <div>
+                                <div className={styles.statValue}>{stat.value}</div>
+                                <div className={styles.statLabel}>{stat.label}</div>
+                            </div>
                         </div>
-                        <div className={styles.statValue}>{stat.value}</div>
-                        <div className={styles.statLabel}>{stat.label}</div>
+                    ))}
+                    {/* Add the Solde card as the 3rd stat card, matching mockup exactly */}
+                    <div className={styles.statCard}>
+                        <div className={styles.statHeader}>
+                            <div className={styles.statIcon}>
+                                <Wallet size={20} />
+                            </div>
+                            <Link href="/tableau-de-bord/wallet" className={styles.addBalanceBtn}>
+                                <Plus size={14} />
+                                <span>{t('add_new')}</span>
+                            </Link>
+                        </div>
+                        <div>
+                            <div className={styles.statValue}>{`${stats?.balance?.toLocaleString() || '0'} DH`}</div>
+                            <div className={styles.statLabel}>{t('stats.balance')}</div>
+                        </div>
                     </div>
-                ))}
+                </div>
             </div>
 
             {/* Main Content Grid */}

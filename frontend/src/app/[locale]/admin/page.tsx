@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth-store';
 import { useLocale } from 'next-intl';
-import { Link } from '../../../navigation';
+import { Link, useRouter } from '../../../navigation';
 import {
     Users, Package, BarChart3, Shield,
     Loader2, AlertTriangle, Layers, ArrowRight,
-    Home, Settings
+    Home, Settings, ShieldAlert
 } from 'lucide-react';
 import { API_BASE_URL, fetchCategories, fetchAdminStats } from '@/lib/api';
 import styles from './admin.module.css';
@@ -22,6 +21,7 @@ interface Stats {
 
 export default function AdminPage() {
     const { user } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<Stats>({
@@ -31,23 +31,31 @@ export default function AdminPage() {
         total_revenue: 0
     });
     const [categoryCount, setCategoryCount] = useState(0);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
         if (!user) {
-            router.push('/login');
+            router.replace('/login');
             return;
         }
 
         if (user.role !== 'ADMIN') {
-            router.push('/dashboard');
+            router.replace('/tableau-de-bord');
             return;
         }
 
         loadAdminData();
-    }, [user, router]);
+    }, [isMounted, user, router]);
 
     async function loadAdminData() {
         try {
+            setError(null);
             const [cats, statsData] = await Promise.all([
                 fetchCategories(),
                 fetchAdminStats()
@@ -63,8 +71,14 @@ export default function AdminPage() {
                 });
             }
 
-        } catch (error) {
-            console.error('Failed to load admin data:', error);
+        } catch (error: any) {
+            const errorMessage = error?.message || (typeof error === 'string' ? error : '');
+            if (errorMessage.includes('ACCESS_DENIED')) {
+                setError('ACCESS_DENIED');
+            } else {
+                console.error('Failed to load admin data:', error);
+                setError('FETCH_ERROR');
+            }
         } finally {
             setLoading(false);
         }
@@ -79,12 +93,36 @@ export default function AdminPage() {
         );
     }
 
-    if (!user || user.role !== 'ADMIN') {
+    if (error === 'ACCESS_DENIED' || (!user || user.role !== 'ADMIN')) {
         return (
-            <div className={styles.accessDenied}>
-                <AlertTriangle size={48} />
-                <h2>Access Denied</h2>
-                <p>You don&apos;t have permission to access this page.</p>
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger les données du tableau de bord.</p>
+                    <button onClick={loadAdminData} className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors">Réessayer</button>
+                </div>
             </div>
         );
     }

@@ -20,10 +20,11 @@ class PaymentController extends Controller
      */
     public function callbackSuccess(Request $request, string $method): JsonResponse
     {
-        Log::info("Payment callback success received for {$method}", $request->all());
+        $payload = $this->paymentPayload($request);
+        Log::info("Payment callback success received for {$method}", $payload);
 
         try {
-            $topUpRequest = $this->paymentService->handleCallback($method, $request->all());
+            $topUpRequest = $this->paymentService->handleCallback($method, $payload);
 
             if ($topUpRequest->isApproved()) {
                 return response()->json([
@@ -44,7 +45,7 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
             Log::error('Payment callback error: '.$e->getMessage(), [
                 'method' => $method,
-                'data' => $request->all(),
+                'data' => $payload,
             ]);
 
             return response()->json([
@@ -61,7 +62,8 @@ class PaymentController extends Controller
      */
     public function callbackFail(Request $request, string $method): JsonResponse
     {
-        Log::warning("Payment callback failure received for {$method}", $request->all());
+        $payload = $this->paymentPayload($request);
+        Log::warning("Payment callback failure received for {$method}", $payload);
 
         return response()->json([
             'success' => false,
@@ -80,22 +82,23 @@ class PaymentController extends Controller
      */
     public function webhook(Request $request, string $method): JsonResponse
     {
+        $payload = $this->paymentPayload($request);
         Log::info("Payment webhook received for {$method}", [
             'headers' => $request->headers->all(),
-            'body' => $request->all(),
+            'body' => $payload,
         ]);
 
         // Validate webhook signature
-        $signature = $request->header('X-Signature', $request->input('hash', ''));
+        $signature = (string) $request->header('X-Signature', data_get($payload, 'hash', ''));
 
-        if (! $this->paymentService->validateWebhook($method, $request->all(), $signature)) {
+        if (! $this->paymentService->validateWebhook($method, $payload, $signature)) {
             Log::warning("Invalid webhook signature for {$method}");
 
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
         try {
-            $topUpRequest = $this->paymentService->handleCallback($method, $request->all());
+            $topUpRequest = $this->paymentService->handleCallback($method, $payload);
 
             Log::info('Webhook processed successfully', [
                 'request_id' => $topUpRequest->id,
@@ -147,5 +150,10 @@ class PaymentController extends Controller
                 'approved_at' => $topUpRequest->approved_at?->toIso8601String(),
             ],
         ]);
+    }
+
+    private function paymentPayload(Request $request): array
+    {
+        return $request->except(['_token']);
     }
 }

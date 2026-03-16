@@ -15,21 +15,27 @@ class DailyListingDeductionJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * The number of times the job may be attempted.
-     */
-    public int $tries = 3;
-
-    /**
-     * The number of seconds to wait before retrying the job.
-     */
-    public int $backoff = 60;
-
-    /**
      * Create a new job instance.
      */
     public function __construct()
     {
-        //
+        $this->onQueue((string) config('queue.defaults.billing_queue', 'billing'));
+    }
+
+    public function tries(): int
+    {
+        return max((int) config('queue.defaults.tries', 3), 1);
+    }
+
+    public function backoff(): array
+    {
+        $baseBackoff = max((int) config('queue.defaults.backoff_seconds', 60), 1);
+
+        return [
+            $baseBackoff,
+            $baseBackoff * 5,
+            $baseBackoff * 15,
+        ];
     }
 
     /**
@@ -46,7 +52,8 @@ class DailyListingDeductionJob implements ShouldQueue
             ->select('id', 'status') // Keep it lightweight
             ->chunkById(100, function ($listings) use (&$dispatchCount) {
                 foreach ($listings as $listing) {
-                    ProcessListingDeductionJob::dispatch($listing);
+                    ProcessListingDeductionJob::dispatch($listing)
+                        ->onQueue((string) config('queue.defaults.billing_queue', 'billing'));
                     $dispatchCount++;
                 }
             });

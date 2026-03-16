@@ -3,7 +3,9 @@ import { defineRouting } from 'next-intl/routing';
 
 export const routing = defineRouting({
     locales: ['ar', 'fr'],
-    defaultLocale: 'ar',
+    defaultLocale: 'fr',
+    localePrefix: 'always',
+    localeDetection: false,
     pathnames: {
         '/': '/',
         '/rent': {
@@ -94,6 +96,10 @@ export const routing = defineRouting({
         '/create': {
             fr: '/creer',
             ar: '/creer'
+        },
+        '/account/verify-email': {
+            fr: '/compte/verifier-email',
+            ar: '/compte/verifier-email'
         }
     }
 });

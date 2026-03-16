@@ -7,6 +7,7 @@ use App\Services\WalletService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -14,7 +15,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -28,7 +29,13 @@ class User extends Authenticatable
         'google_id',
         'phone',
         'avatar',
+        'bio',
+        'city_id',
         'role',
+        'anonymized_at',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
     ];
 
     /**
@@ -51,6 +58,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'anonymized_at' => 'datetime',
         ];
     }
 
@@ -60,8 +68,8 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::created(function (User $user) {
-            // Auto-create wallet with bonus for new users
-            app(WalletService::class)->createWalletWithBonus($user);
+            // Auto-create empty wallet for new users (bonus given on email verification)
+            app(WalletService::class)->getOrCreateWallet($user);
         });
     }
 
@@ -135,8 +143,7 @@ class User extends Authenticatable
     public function usedCoupons()
     {
         return $this->belongsToMany(Coupon::class, 'coupon_user')
-            ->withPivot('used_at')
-            ->withTimestamps();
+            ->withPivot('used_at');
     }
 
     /**

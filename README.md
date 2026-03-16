@@ -13,6 +13,7 @@ This repo contains the Parq platform:
 
 See `docs/ENVIRONMENTS.md` and `docs/BRANCHING.md`.
 Versioning policy: `docs/VERSIONING.md` and `CHANGELOG.md`.
+Security notes: `docs/SECURITY-HARDENING.md`.
 
 ## Local Dev (Quickstart)
 

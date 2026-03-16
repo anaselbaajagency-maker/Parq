@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\StoreMessageRequest;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -73,19 +74,15 @@ class MessageController extends Controller
     /**
      * Send a new message.
      */
-    public function store(Request $request)
+    public function store(StoreMessageRequest $request)
     {
-        $request->validate([
-            'receiver_id' => 'required|exists:users,id',
-            'content' => 'required|string',
-            'listing_id' => 'nullable|exists:listings,id',
-        ]);
+        $validated = $request->validated();
 
         $message = Message::create([
             'sender_id' => Auth::id(),
-            'receiver_id' => $request->receiver_id,
-            'listing_id' => $request->listing_id,
-            'content' => $request->content,
+            'receiver_id' => $validated['receiver_id'],
+            'listing_id' => $validated['listing_id'] ?? null,
+            'content' => $validated['content'],
         ]);
 
         return response()->json($message, 201);

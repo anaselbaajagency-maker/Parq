@@ -42,10 +42,10 @@ class TopUpService
         // Store proof image if provided
         $proofPath = null;
         if ($proofImage) {
-            $proofPath = $proofImage->store('topup-proofs/'.$user->id, 'public');
+            $proofPath = $proofImage->store('topup-proofs/'.$user->id, 'local');
         }
 
-        return TopUpRequest::create([
+        $request = TopUpRequest::create([
             'user_id' => $user->id,
             'amount' => $amount,
             'method' => TopUpRequest::METHOD_BANK_TRANSFER,
@@ -53,6 +53,14 @@ class TopUpService
             'proof_image' => $proofPath,
             'payment_reference' => 'VIR-'.strtoupper(uniqid()).'-'.time(),
         ]);
+
+        // Notify admins
+        $admins = User::where('role', 'ADMIN')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new \App\Notifications\NewTopUpRequestNotification($request));
+        }
+
+        return $request;
     }
 
     /**
@@ -66,10 +74,10 @@ class TopUpService
 
         // Delete old proof if exists
         if ($request->proof_image) {
-            Storage::disk('public')->delete($request->proof_image);
+            Storage::disk('local')->delete($request->proof_image);
         }
 
-        $proofPath = $proofImage->store('topup-proofs/'.$request->user_id, 'public');
+        $proofPath = $proofImage->store('topup-proofs/'.$request->user_id, 'local');
 
         $request->update(['proof_image' => $proofPath]);
 
@@ -118,7 +126,7 @@ class TopUpService
     /**
      * Reject a top-up request.
      */
-    public function reject(TopUpRequest $request, User $admin, string $reason): TopUpRequest
+    public function reject(TopUpRequest $request, User $admin, ?string $reason = null): TopUpRequest
     {
         if (! $request->isPending() && ! $request->isProcessing()) {
             throw new \RuntimeException('Cette demande a déjà été traitée');
@@ -126,7 +134,8 @@ class TopUpService
 
         $request->reject($admin, $reason);
 
-        // TODO: Send notification to user about rejection
+        // Notify the user
+        $request->user->notify(new \App\Notifications\TopUpRejectedNotification($request, $reason ?? 'Non spécifié'));
 
         return $request->fresh();
     }
@@ -198,7 +207,7 @@ class TopUpService
 
         // Delete proof image if exists
         if ($request->proof_image) {
-            Storage::disk('public')->delete($request->proof_image);
+            Storage::disk('local')->delete($request->proof_image);
         }
 
         $request->delete();
@@ -206,9 +215,6 @@ class TopUpService
         return $request;
     }
 
-    /**
-     * Get statistics for admin dashboard.
-     */
     public function getStatistics(): array
     {
         $today = now()->startOfDay();
@@ -228,6 +234,15 @@ class TopUpService
                 ->count(),
             'approved_this_month_amount' => TopUpRequest::approved()
                 ->where('approved_at', '>=', $thisMonth)
+                ->sum('amount'),
+            'coupons_total_credit' => WalletTransaction::where('type', WalletTransaction::TYPE_COUPON)
+                ->where('amount', '>', 0)
+                ->sum('amount'),
+            'free_credits_total' => WalletTransaction::whereIn('type', [
+                    WalletTransaction::TYPE_BONUS,
+                    WalletTransaction::TYPE_ADMIN_CREDIT
+                ])
+                ->where('amount', '>', 0)
                 ->sum('amount'),
         ];
     }

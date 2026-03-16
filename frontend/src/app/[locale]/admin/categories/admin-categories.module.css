@@ -168,6 +168,39 @@
     box-shadow: 0 0 0 4px rgba(255, 184, 0, 0.1);
 }
 
+.selectAllBtn.selected {
+    background: #0F172A;
+    border-color: #0F172A;
+    color: white;
+}
+
+.headerDeleteBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    background: #EF4444;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.headerDeleteBtn:hover {
+    background: #DC2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
 /* Table */
 .tableContainer {
     background: white;
@@ -433,6 +466,24 @@
     outline: none;
     border-color: #ffb800;
     box-shadow: 0 0 0 4px rgba(255, 184, 0, 0.1);
+}
+
+.iconSelectorBtn:focus {
+    border-color: #ffb800;
+    box-shadow: 0 0 0 4px rgba(255, 184, 0, 0.1);
+}
+
+.countBadge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #475569;
+    width: fit-content;
 }
 
 .row {

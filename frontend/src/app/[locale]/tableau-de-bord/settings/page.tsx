@@ -1,26 +1,130 @@
 'use client';
 
 import { useAuthStore } from '@/lib/auth-store';
-import { useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Save, User, Lock, Bell, CreditCard, ChevronRight, Camera, ChevronDown } from 'lucide-react';
-import { fetchCities, City, getLocalizedName } from '@/lib/api';
+import { fetchCities, City, getLocalizedName, apiUser, parseImageUrl } from '@/lib/api';
 import styles from './settings.module.css';
-
+import Image from 'next/image';
 export default function SettingsPage() {
-    const { user } = useAuthStore();
+    const { user, isAuthenticated, updateUser } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
     const t = useTranslations('Dashboard');
     const locale = useLocale();
     const [isLoading, setIsLoading] = useState(false);
+    const [avatarLoading, setAvatarLoading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleAvatarClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setAvatarLoading(true);
+        try {
+            const res = await apiUser.updateAvatar(file);
+            if (res.user) {
+                updateUser(res.user as any);
+            }
+            alert(t('settings_page.success_message'));
+        } catch (error) {
+            console.error('Failed to upload avatar', error);
+            alert(t('settings_page.error_message'));
+        } finally {
+            setAvatarLoading(false);
+        }
+    };
     const [activeTab, setActiveTab] = useState('profile');
     const [cities, setCities] = useState<City[]>([]);
-    const [selectedCity, setSelectedCity] = useState('');
+    
+    // Form state
+    const [formData, setFormData] = useState({
+        full_name: '',
+        phone: '',
+        city_id: '',
+        bio: ''
+    });
+
+    const [passwordData, setPasswordData] = useState({
+        current_password: '',
+        password: '',
+        password_confirmation: ''
+    });
+
+    const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
 
     useEffect(() => {
-        fetchCities().then(setCities);
+        setIsMounted(true);
     }, []);
 
-    if (!user) return null;
+    const [twoFactorStatus, setTwoFactorStatus] = useState<{ enabled: boolean; confirmed: boolean }>({ enabled: false, confirmed: false });
+    const [showTwoFactorModal, setShowTwoFactorModal] = useState(false);
+    const [twoFactorData, setTwoFactorData] = useState<{ secret: string; qr_code_svg: string; qr_code_url: string } | null>(null);
+    const [verificationCode, setVerificationCode] = useState('');
+    const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+    const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+
+    const [sessions, setSessions] = useState<any[]>([]);
+    const [showSessionsList, setShowSessionsList] = useState(false);
+    const [isSessionsLoading, setIsSessionsLoading] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                full_name: user.full_name || '',
+                phone: (user as any).phone || '',
+                city_id: String((user as any).city_id || ''),
+                bio: (user as any).bio || ''
+            });
+
+            // Fetch 2FA status
+            apiUser.get2FAStatus().then(setTwoFactorStatus).catch(console.error);
+            // Fetch sessions
+            fetchSessions();
+        }
+    }, [user]);
+
+    const fetchSessions = async () => {
+        setIsSessionsLoading(true);
+        try {
+            const res = await apiUser.getSessions();
+            setSessions(res.sessions);
+        } catch (error) {
+            console.error('Failed to fetch sessions', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!isMounted) return;
+        fetchCities().then(setCities);
+    }, [isMounted]);
+
+    if (!isMounted) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '400px' }}>
+                <div style={{ width: '40px', height: '40px', border: '3px solid #f3f3f3', borderTop: '3px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
+
+    if (!user) {
+        if (isAuthenticated) {
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '400px' }}>
+                    <p>Chargement du profil...</p>
+                </div>
+            );
+        }
+        return null; // Layout will handle redirect
+    }
 
     const isGoogleUser = !!(user as any).google_id;
 
@@ -28,12 +132,118 @@ export default function SettingsPage() {
         { id: 'profile', label: t('settings_page.personal_info'), icon: User },
         { id: 'security', label: t('settings_page.login_security'), icon: Lock },
         { id: 'notifications', label: t('settings_page.notifications'), icon: Bell },
-        { id: 'payments', label: t('settings_page.payments'), icon: CreditCard },
+        // { id: 'payments', label: t('settings_page.payments'), icon: CreditCard },
     ];
 
-    const handleSave = () => {
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (passwordData.password !== passwordData.password_confirmation) {
+            alert(t('settings_page.password_mismatch') || 'Les mots de passe ne correspondent pas.');
+            return;
+        }
+
+        setIsPasswordUpdating(true);
+        try {
+            await apiUser.changePassword(passwordData);
+            alert(t('settings_page.password_change_success'));
+            setPasswordData({
+                current_password: '',
+                password: '',
+                password_confirmation: ''
+            });
+            setShowPasswordForm(false);
+        } catch (error: any) {
+            console.error('Failed to change password', error);
+            alert(t('settings_page.password_change_error'));
+        } finally {
+            setIsPasswordUpdating(false);
+        }
+    };
+
+    const handleEnable2FA = async () => {
+        try {
+            const data = await apiUser.enable2FA();
+            setTwoFactorData(data);
+            setShowTwoFactorModal(true);
+        } catch (error) {
+            console.error('Failed to initiate 2FA setup', error);
+            alert(t('settings_page.error_message'));
+        }
+    };
+
+    const handleConfirm2FA = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsVerifying2FA(true);
+        try {
+            const res = await apiUser.confirm2FA(verificationCode);
+            setRecoveryCodes(res.recovery_codes);
+            setTwoFactorStatus({ enabled: true, confirmed: true });
+            alert(t('settings_page.password_change_success'));
+        } catch (error: any) {
+            console.error('Failed to confirm 2FA', error);
+            alert(error.message || t('settings_page.password_change_error'));
+        } finally {
+            setIsVerifying2FA(false);
+        }
+    };
+
+    const handleDisable2FA = async () => {
+        if (!confirm(t('settings_page.two_factor_disable_confirm') || 'Êtes-vous sûr de vouloir désactiver l\'authentification à deux facteurs ?')) return;
+        try {
+            await apiUser.disable2FA();
+            setTwoFactorStatus({ enabled: false, confirmed: false });
+            alert(t('settings_page.password_change_success'));
+        } catch (error) {
+            console.error('Failed to disable 2FA', error);
+            alert(t('settings_page.error_message'));
+        }
+    };
+
+    const handleRevokeSession = async (id: number) => {
+        try {
+            await apiUser.revokeSession(id);
+            setSessions(sessions.filter(s => s.id !== id));
+            alert(t('settings_page.password_change_success'));
+        } catch (error) {
+            console.error('Failed to revoke session', error);
+            alert(t('settings_page.password_change_error') || 'Erreur lors de la révocation');
+        }
+    };
+
+    const handleRevokeOthers = async () => {
+        if (!confirm(t('settings_page.session_revoke_others_confirm'))) return;
+        try {
+            await apiUser.revokeOtherSessions();
+            setSessions(sessions.filter(s => s.is_current));
+            alert(t('settings_page.password_change_success'));
+        } catch (error) {
+            console.error('Failed to revoke other sessions', error);
+            alert(t('settings_page.password_change_error') || 'Erreur lors de la révocation');
+        }
+    };
+
+    const handleSave = async () => {
         setIsLoading(true);
-        setTimeout(() => setIsLoading(false), 800);
+        try {
+            const res = await apiUser.updateProfile({
+                full_name: formData.full_name,
+                phone: formData.phone,
+                city_id: formData.city_id ? Number(formData.city_id) : null,
+                bio: formData.bio
+            });
+            
+            // Update local user state
+            if (res.user) {
+                updateUser(res.user as any);
+            }
+            
+            alert(t('settings_page.success_message'));
+        } catch (error) {
+            console.error('Failed to update profile', error);
+            alert(t('settings_page.error_message'));
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -79,21 +289,41 @@ export default function SettingsPage() {
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <h2 className={styles.sectionTitle}>{t('settings_page.personal_info')}</h2>
-                                <p className={styles.sectionDesc}>Update your photo and personal details here.</p>
+                                <p className={styles.sectionDesc}>{t('settings_page.profile_desc')}</p>
                             </div>
 
                             {/* Avatar */}
                             <div className={styles.avatarSection}>
                                 <div className={styles.avatar}>
-                                    {(user as any).avatar ? (
-                                        <img src={(user as any).avatar} alt={user.full_name} className={styles.avatarImg} />
+                                    {avatarLoading ? (
+                                        <div className={styles.loader} />
+                                    ) : (user as any).avatar ? (
+                                        <Image 
+                                            src={parseImageUrl((user as any).avatar) || (user as any).avatar} 
+                                            alt={user.full_name} 
+                                            className={styles.avatarImg} 
+                                            width={88} 
+                                            height={88} 
+                                            unoptimized
+                                        />
                                     ) : (
                                         user.full_name?.charAt(0)
                                     )}
                                 </div>
-                                <button className={styles.avatarBtn}>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleAvatarChange}
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                />
+                                <button 
+                                    className={styles.avatarBtn}
+                                    onClick={handleAvatarClick}
+                                    disabled={avatarLoading}
+                                >
                                     <Camera size={16} />
-                                    {t('settings_page.update_photo')}
+                                    {avatarLoading ? t('settings_page.saving') : t('settings_page.update_photo')}
                                 </button>
                             </div>
 
@@ -103,7 +333,8 @@ export default function SettingsPage() {
                                     <label className={styles.label}>{t('settings_page.full_name')}</label>
                                     <input
                                         type="text"
-                                        defaultValue={user.full_name}
+                                        value={formData.full_name}
+                                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                                         className={styles.input}
                                     />
                                 </div>
@@ -116,7 +347,7 @@ export default function SettingsPage() {
                                         className={`${styles.input} ${styles.inputDisabled}`}
                                     />
                                     {isGoogleUser && (
-                                        <span className={styles.inputHint}>Linked with Google account</span>
+                                        <span className={styles.inputHint}>{t('settings_page.google_linked')}</span>
                                     )}
                                 </div>
                                 <div className={styles.formGroup}>
@@ -124,6 +355,8 @@ export default function SettingsPage() {
                                     <input
                                         type="tel"
                                         placeholder="+212 6XX XXX XXX"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                         className={styles.input}
                                     />
                                 </div>
@@ -131,8 +364,8 @@ export default function SettingsPage() {
                                     <label className={styles.label}>{t('settings_page.location')}</label>
                                     <div className={styles.selectWrapper}>
                                         <select
-                                            value={selectedCity}
-                                            onChange={(e) => setSelectedCity(e.target.value)}
+                                            value={formData.city_id}
+                                            onChange={(e) => setFormData({ ...formData, city_id: e.target.value })}
                                             className={styles.select}
                                         >
                                             <option value="">{t('settings_page.select_city')}</option>
@@ -150,6 +383,8 @@ export default function SettingsPage() {
                                     <textarea
                                         rows={3}
                                         placeholder={t('settings_page.bio_placeholder')}
+                                        value={formData.bio}
+                                        onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                                         className={styles.textarea}
                                     />
                                 </div>
@@ -161,7 +396,7 @@ export default function SettingsPage() {
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <h2 className={styles.sectionTitle}>{t('settings_page.login_security')}</h2>
-                                <p className={styles.sectionDesc}>Manage your password and account security.</p>
+                                <p className={styles.sectionDesc}>{t('settings_page.security_desc')}</p>
                             </div>
 
                             <div className={styles.securityList}>
@@ -174,33 +409,225 @@ export default function SettingsPage() {
                                             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                                         </svg>
                                         <div>
-                                            <h4>Signed in with Google</h4>
-                                            <p>Your account security is managed by Google. Visit your Google Account settings to update your password.</p>
+                                            <h4>{t('settings_page.google_signed_in')}</h4>
+                                            <p>{t('settings_page.google_security_managed')}</p>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className={styles.securityItem}>
-                                        <div className={styles.securityInfo}>
-                                            <h4>{t('settings_page.password')}</h4>
-                                            <p>{t('settings_page.password_updated')}</p>
+                                    <div className={styles.securityItem} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '20px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                                            <div className={styles.securityInfo}>
+                                                <h4>{t('settings_page.password')}</h4>
+                                                <p>{t('settings_page.password_updated')}</p>
+                                            </div>
+                                            <button 
+                                                className={styles.updateBtn}
+                                                onClick={() => setShowPasswordForm(!showPasswordForm)}
+                                            >
+                                                {showPasswordForm ? t('common.cancel') || 'Annuler' : t('settings_page.update')}
+                                            </button>
                                         </div>
-                                        <button className={styles.updateBtn}>{t('settings_page.update')}</button>
+
+                                        {showPasswordForm && (
+                                            <form onSubmit={handlePasswordChange} className={styles.formGrid} style={{ width: '100%', marginTop: '10px' }}>
+                                                <div className={`${styles.formGroup} ${styles.formGroupFull}`}>
+                                                    <label className={styles.label}>{t('settings_page.current_password')}</label>
+                                                    <input
+                                                        type="password"
+                                                        required
+                                                        value={passwordData.current_password}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                                                        className={styles.input}
+                                                    />
+                                                </div>
+                                                <div className={styles.formGroup}>
+                                                    <label className={styles.label}>{t('settings_page.new_password')}</label>
+                                                    <input
+                                                        type="password"
+                                                        required
+                                                        value={passwordData.password}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
+                                                        className={styles.input}
+                                                    />
+                                                </div>
+                                                <div className={styles.formGroup}>
+                                                    <label className={styles.label}>{t('settings_page.confirm_password')}</label>
+                                                    <input
+                                                        type="password"
+                                                        required
+                                                        value={passwordData.password_confirmation}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, password_confirmation: e.target.value })}
+                                                        className={styles.input}
+                                                    />
+                                                </div>
+                                                <div className={styles.formGroupFull}>
+                                                    <button 
+                                                        type="submit" 
+                                                        disabled={isPasswordUpdating}
+                                                        className={styles.saveBtn}
+                                                        style={{ padding: '10px 24px', fontSize: '14px', width: 'auto' }}
+                                                    >
+                                                        {isPasswordUpdating ? t('settings_page.saving') : t('settings_page.save')}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        )}
                                     </div>
                                 )}
-                                <div className={styles.securityItem}>
-                                    <div className={styles.securityInfo}>
-                                        <h4>{t('settings_page.two_factor')}</h4>
-                                        <p>{t('settings_page.two_factor_desc')}</p>
+                                    <div className={styles.securityItem}>
+                                        <div className={styles.securityInfo}>
+                                            <h4>{t('settings_page.two_factor')}</h4>
+                                            <p>{t('settings_page.two_factor_desc')}</p>
+                                            {twoFactorStatus.confirmed && (
+                                                <span className={styles.statusBadge} style={{ color: '#10b981', background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', marginTop: '4px', display: 'inline-block' }}>
+                                                    {t('settings_page.two_factor_status_enabled')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {twoFactorStatus.confirmed ? (
+                                            <button className={styles.updateBtn} style={{ color: '#ef4444' }} onClick={handleDisable2FA}>
+                                                {t('common.deactivate')}
+                                            </button>
+                                        ) : (
+                                            <button className={styles.updateBtn} onClick={handleEnable2FA}>
+                                                {t('settings_page.setup')}
+                                            </button>
+                                        )}
                                     </div>
-                                    <button className={styles.updateBtn}>{t('settings_page.setup')}</button>
-                                </div>
-                                <div className={styles.securityItem}>
-                                    <div className={styles.securityInfo}>
-                                        <h4>{t('settings_page.active_sessions')}</h4>
-                                        <p>{t('settings_page.sessions_desc')}</p>
+
+                                    {showTwoFactorModal && (
+                                        <div className={styles.modalOverlay} style={{
+                                            position: 'fixed',
+                                            top: 0, left: 0, right: 0, bottom: 0,
+                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                            zIndex: 1000,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <div className={styles.modalContent} style={{
+                                                backgroundColor: 'white',
+                                                padding: '30px',
+                                                borderRadius: '16px',
+                                                maxWidth: '500px',
+                                                width: '100%',
+                                                textAlign: 'center'
+                                            }}>
+                                                <h3 style={{ marginBottom: '20px' }}>{t('settings_page.two_factor_title')}</h3>
+                                                
+                                                {!recoveryCodes ? (
+                                                    <div style={{ textAlign: 'left' }}>
+                                                        <p style={{ marginBottom: '15px' }}>{t('settings_page.two_factor_step1')}</p>
+                                                        {twoFactorData && (
+                                                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }} 
+                                                                 dangerouslySetInnerHTML={{ __html: twoFactorData.qr_code_svg }} />
+                                                        )}
+                                                        <p style={{ marginBottom: '10px' }}>{t('settings_page.two_factor_step2')}</p>
+                                                        <form onSubmit={handleConfirm2FA}>
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder={t('settings_page.two_factor_placeholder')}
+                                                                value={verificationCode}
+                                                                onChange={(e) => setVerificationCode(e.target.value)}
+                                                                className={styles.input}
+                                                                style={{ marginBottom: '15px', textAlign: 'center', letterSpacing: '4px', fontSize: '18px' }}
+                                                                maxLength={6}
+                                                                required
+                                                            />
+                                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                                <button type="button" className={styles.dangerBtn} onClick={() => setShowTwoFactorModal(false)} style={{ flex: 1 }}>
+                                                                    {t('common.cancel') || 'Annuler'}
+                                                                </button>
+                                                                <button type="submit" disabled={isVerifying2FA} className={styles.saveBtn} style={{ flex: 1 }}>
+                                                                    {isVerifying2FA ? t('settings_page.saving') : t('settings_page.two_factor_verify')}
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ textAlign: 'left' }}>
+                                                        <p style={{ color: '#10b981', fontWeight: 'bold', marginBottom: '15px' }}>{t('settings_page.two_factor_enabled_msg')}</p>
+                                                        <h4 style={{ marginBottom: '10px' }}>{t('settings_page.two_factor_recovery_title')}</h4>
+                                                        <p style={{ fontSize: '13px', marginBottom: '15px', color: '#666' }}>{t('settings_page.two_factor_recovery_desc')}</p>
+                                                        <div style={{ backgroundColor: '#f9fafb', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                            {recoveryCodes.map(code => (
+                                                                <code key={code} style={{ fontSize: '14px', color: '#333' }}>{code}</code>
+                                                            ))}
+                                                        </div>
+                                                        <button className={styles.saveBtn} onClick={() => setShowTwoFactorModal(false)} style={{ width: '100%' }}>
+                                                            {t('common.finish')}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className={styles.securityItem} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '20px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                                            <div className={styles.securityInfo}>
+                                                <h4>{t('settings_page.active_sessions')}</h4>
+                                                <p>{t('settings_page.active_sessions_desc')}</p>
+                                            </div>
+                                            <button 
+                                                className={styles.updateBtn}
+                                                onClick={() => setShowSessionsList(!showSessionsList)}
+                                            >
+                                                {showSessionsList ? t('common.cancel') || 'Fermer' : t('settings_page.manage')}
+                                            </button>
+                                        </div>
+
+                                        {showSessionsList && (
+                                            <div style={{ width: '100%', marginTop: '10px' }}>
+                                                {sessions.length > 1 && (
+                                                    <button 
+                                                        onClick={handleRevokeOthers}
+                                                        className={styles.updateBtn}
+                                                        style={{ color: '#ef4444', marginBottom: '20px', padding: '0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}
+                                                    >
+                                                        {t('settings_page.session_revoke_others')}
+                                                    </button>
+                                                )}
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    {sessions.map((session) => (
+                                                        <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid #f3f4f6', borderRadius: '12px', backgroundColor: '#f9f9fb' }}>
+                                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                                <div style={{ padding: '8px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+                                                                    {session.device_name.toLowerCase().includes('web') ? (
+                                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                                                                    ) : (
+                                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                                                                    )}
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                        <h5 style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{session.device_name}</h5>
+                                                                        {session.is_current && (
+                                                                            <span style={{ fontSize: '11px', color: '#10b981', backgroundColor: '#ecfdf5', padding: '2px 6px', borderRadius: '4px', fontWeight: '500' }}>
+                                                                                {t('settings_page.session_current')}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                                                                        {session.ip_address} • {t('settings_page.session_last_active', { date: new Date(session.last_used_at || session.created_at).toLocaleDateString() })}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            {!session.is_current && (
+                                                                <button 
+                                                                    onClick={() => handleRevokeSession(session.id)}
+                                                                    className={styles.updateBtn}
+                                                                    style={{ color: '#ef4444', fontSize: '13px' }}
+                                                                >
+                                                                    {t('settings_page.session_revoke')}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <button className={styles.updateBtn}>{t('settings_page.manage')}</button>
-                                </div>
                             </div>
                         </div>
                     )}
@@ -209,7 +636,7 @@ export default function SettingsPage() {
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <h2 className={styles.sectionTitle}>{t('settings_page.notifications')}</h2>
-                                <p className={styles.sectionDesc}>Choose how you want to be notified.</p>
+                                <p className={styles.sectionDesc}>{t('settings_page.notifications_desc')}</p>
                             </div>
 
                             <div className={styles.notificationsList}>
@@ -217,7 +644,7 @@ export default function SettingsPage() {
                                     { key: 'messages', title: t('settings_page.notif_messages'), desc: t('settings_page.notif_messages_desc'), checked: true },
                                     { key: 'bookings', title: t('settings_page.notif_bookings'), desc: t('settings_page.notif_bookings_desc'), checked: true },
                                     { key: 'updates', title: t('settings_page.notif_updates'), desc: t('settings_page.notif_updates_desc'), checked: true },
-                                    { key: 'promos', title: t('settings_page.notif_promos'), desc: t('settings_page.notif_promos_desc'), checked: false },
+                                    { key: 'promos', title: t('settings_page.notif_promos'), desc: t('settings_page.notif_promos_desc'), checked: true },
                                 ].map((item) => (
                                     <label key={item.key} className={styles.notificationItem}>
                                         <div className={styles.notificationInfo}>
@@ -234,11 +661,11 @@ export default function SettingsPage() {
                         </div>
                     )}
 
-                    {activeTab === 'payments' && (
+                    {/* {activeTab === 'payments' && (
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <h2 className={styles.sectionTitle}>{t('settings_page.payments')}</h2>
-                                <p className={styles.sectionDesc}>Manage your payment methods and payout preferences.</p>
+                                <p className={styles.sectionDesc}>{t('settings_page.payments_desc')}</p>
                             </div>
 
                             <div className={styles.paymentCard}>
@@ -250,7 +677,7 @@ export default function SettingsPage() {
                                 <button className={styles.addBtn}>{t('settings_page.add')}</button>
                             </div>
                         </div>
-                    )}
+                    )} */}
 
                     {/* Footer */}
                     <div className={styles.footer}>

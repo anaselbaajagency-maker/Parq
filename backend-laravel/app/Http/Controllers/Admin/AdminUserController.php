@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminUserUpdateRequest;
 use App\Models\User;
+use App\Services\UserDataLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AdminUserController extends Controller
 {
+    public function __construct(private UserDataLifecycleService $userDataLifecycleService) {}
+
     /**
      * Get paginated list of users.
      *
@@ -67,15 +71,11 @@ class AdminUserController extends Controller
      *
      * PUT /api/admin/users/{id}
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(AdminUserUpdateRequest $request, int $id): JsonResponse
     {
         $user = User::findOrFail($id);
 
-        $validated = $request->validate([
-            'role' => 'sometimes|in:user,admin,provider',
-            'full_name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,'.$id,
-        ]);
+        $validated = $request->validated();
 
         $user->update($validated);
 
@@ -103,11 +103,54 @@ class AdminUserController extends Controller
             ], 403);
         }
 
-        $user->delete();
+        $this->userDataLifecycleService->anonymizeAndDelete(
+            user: $user,
+            actor: auth()->user(),
+            reason: 'admin_action'
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'Utilisateur supprimé avec succès',
+            'message' => 'Utilisateur anonymisé et supprimé avec succès',
+        ]);
+    }
+
+    /**
+     * Bulk delete users.
+     *
+     * POST /api/admin/users/bulk-delete
+     */
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun utilisateur sélectionné.',
+            ], 400);
+        }
+
+        $users = User::whereIn('id', $ids)->get();
+        $count = 0;
+
+        foreach ($users as $user) {
+            // Prevent deleting self
+            if (auth()->id() === $user->id) {
+                continue;
+            }
+
+            $this->userDataLifecycleService->anonymizeAndDelete(
+                user: $user,
+                actor: auth()->user(),
+                reason: 'admin_action_bulk'
+            );
+            $count++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$count} utilisateur(s) anonymisé(s) et supprimé(s) avec succès.",
         ]);
     }
 }

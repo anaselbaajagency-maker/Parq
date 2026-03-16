@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { api } from '@/lib/api';
+import { api, authFetch, API_BASE_URL } from '@/lib/api';
+import { fetchTopUpRequests } from '@/lib/wallet-api';
 import { WalletBalance, Transaction, TopUpRequest } from '@/types/wallet';
 import TransactionList from '@/components/wallet/TransactionList';
 import PaymentMethodSelector, { PaymentMethodId } from '@/components/wallet/PaymentMethodSelector';
@@ -28,7 +29,8 @@ export default function WalletClient() {
     const t = useTranslations('Wallet');
     const locale = useLocale();
     const router = useRouter();
-    const { user } = useAuthStore();
+    const { user, isAuthenticated } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
 
     const [wallet, setWallet] = useState<WalletBalance | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -37,31 +39,63 @@ export default function WalletClient() {
     // Top-up flow status
     const [step, setStep] = useState<'main' | 'recharge' | 'coupon'>('main');
     const [selectedMethod, setSelectedMethod] = useState<PaymentMethodId | null>(null);
+    const [selectedMethodData, setSelectedMethodData] = useState<any>(null);
     const [amount, setAmount] = useState<number>(100);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [topUpResult, setTopUpResult] = useState<TopUpRequest | null>(null);
     const [couponCode, setCouponCode] = useState('');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [proofUploaded, setProofUploaded] = useState(false);
 
     useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
         if (user) {
             loadData();
+        } else if (!isAuthenticated) {
+            setLoading(false);
         }
-    }, [user]);
+    }, [user, isMounted, isAuthenticated]);
 
     async function loadData() {
         setLoading(true);
         try {
-            const [walletRes, txRes] = await Promise.all([
+            const [walletRes, txList, topupRes] = await Promise.all([
                 api.wallet.getBalance(),
-                api.wallet.getTransactions()
+                api.wallet.getTransactions(),
+                fetchTopUpRequests()
             ]);
-            // @ts-ignore
-            setWallet(walletRes.data || walletRes);
-            // @ts-ignore
-            const txList = txRes.data || txRes;
-            setTransactions(Array.isArray(txList) ? txList.slice(0, 5) : []); // Just the last 5 for the main view
-        } catch (error) {
+
+            setWallet(walletRes);
+
+            // Transform pending/rejected top-up requests into transactions
+            const pendingTxs: Transaction[] = (topupRes || [])
+                .filter(r => r.status === 'pending' || r.status === 'rejected')
+                .map(r => ({
+                    id: -r.id, // Negative ID to avoid collision
+                    type: 'topup',
+                    amount: r.amount,
+                    description: `${t('top_up')} (${r.method_label || r.method})`,
+                    created_at: r.created_at,
+                    status: (r.status === 'pending' ? 'pending' : 'failed') as Transaction['status'],
+                    reference: r.reference,
+                    receipt_url: r.proof_image
+                }));
+
+            // Merge and sort
+            const combined = [...pendingTxs, ...(txList || [])].sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+
+            setTransactions(combined.slice(0, 10)); // Show a few more in the main list
+        } catch (error: any) {
+            if (error?.message?.includes('401')) {
+                return;
+            }
             console.error('Failed to load wallet data', error);
         } finally {
             setLoading(false);
@@ -92,6 +126,7 @@ export default function WalletClient() {
         try {
             await api.wallet.uploadProof(topUpResult.id, file);
             setMessage({ type: 'success', text: t('receipt.sent_for_validation') });
+            setProofUploaded(true);
         } catch (error) {
             setMessage({ type: 'error', text: t('error_topup') });
         } finally {
@@ -175,12 +210,14 @@ export default function WalletClient() {
                     {/* RECHARGE VIEW */}
                     {step === 'recharge' && (
                         <div className={`${styles.card} animate-fadeIn`}>
-                            <button
-                                onClick={() => { setStep('main'); setTopUpResult(null); setMessage(null); }}
-                                className={styles.backBtn}
-                            >
-                                <ArrowLeft size={16} /> {t('cancel')}
-                            </button>
+                            <div className={styles.headerActions} style={{ marginBottom: '16px' }}>
+                                <button
+                                    onClick={() => { setStep('main'); setTopUpResult(null); setMessage(null); }}
+                                    className={styles.secondaryBtn}
+                                >
+                                    <ArrowLeft size={16} /> {t('cancel')}
+                                </button>
+                            </div>
 
                             {!topUpResult ? (
                                 <>
@@ -218,7 +255,13 @@ export default function WalletClient() {
 
                                         <div className={styles.formGroup}>
                                             <label className={styles.label}>{t('payment_method')}</label>
-                                            <PaymentMethodSelector selectedId={selectedMethod} onSelect={setSelectedMethod} />
+                                            <PaymentMethodSelector
+                                                selectedId={selectedMethod}
+                                                onSelect={(method) => {
+                                                    setSelectedMethod(method.code);
+                                                    setSelectedMethodData(method);
+                                                }}
+                                            />
                                         </div>
 
                                         {message?.type === 'error' && (
@@ -253,12 +296,16 @@ export default function WalletClient() {
                                                 {t('instructions.bank_transfer')}
                                             </div>
                                             <div className={styles.bankRow}>
-                                                <span className={styles.bankLabel}>RIB PARQ MARKET</span>
-                                                <span className={styles.bankValue}>007 810 0001234567890123 44</span>
+                                                <span className={styles.bankLabel}>{t('bank_details.rib')}</span>
+                                                <span className={styles.bankValue}>
+                                                    {selectedMethodData?.config?.rib || '007 810 0001234567890123 44'}
+                                                </span>
                                             </div>
                                             <div className={styles.bankRow}>
-                                                <span className={styles.bankLabel}>Banque</span>
-                                                <span className={styles.bankValue}>Attijariwafa Bank</span>
+                                                <span className={styles.bankLabel}>{t('bank_details.bank')}</span>
+                                                <span className={styles.bankValue}>
+                                                    {selectedMethodData?.config?.bank_name || 'Attijariwafa Bank'}
+                                                </span>
                                             </div>
                                             <div className="pt-6">
                                                 <UploadReceipt onUpload={handleUploadProof} isUploading={isSubmitting} />
@@ -284,13 +331,16 @@ export default function WalletClient() {
                                         </div>
                                     )}
 
-                                    <button
-                                        onClick={() => { setStep('main'); setTopUpResult(null); setMessage(null); }}
-                                        className={styles.submitBtn}
-                                        style={{ background: '#000', color: '#fff' }}
-                                    >
-                                        {t('finish')}
-                                    </button>
+                                    {/* Show Terminer only if NOT bank_transfer, OR if proof has been uploaded */}
+                                    {(selectedMethod !== 'bank_transfer' || proofUploaded) && (
+                                        <button
+                                            onClick={() => { setStep('main'); setTopUpResult(null); setMessage(null); setProofUploaded(false); }}
+                                            className={styles.submitBtn}
+                                            style={{ background: '#000', color: '#fff' }}
+                                        >
+                                            {t('finish')}
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -298,22 +348,25 @@ export default function WalletClient() {
 
                     {/* COUPON VIEW */}
                     {step === 'coupon' && (
-                        <div className={styles.card}>
-                            <button
-                                onClick={() => { setStep('main'); setMessage(null); }}
-                                className={styles.backBtn}
-                            >
-                                <ArrowLeft size={16} /> {t('cancel')}
-                            </button>
+                        <div className={styles.couponContainer}>
+                            <div className={styles.headerActions} style={{ marginBottom: '16px', justifyContent: 'flex-start' }}>
+                                <button
+                                    onClick={() => { setStep('main'); setMessage(null); }}
+                                    className={styles.secondaryBtn}
+                                >
+                                    <ArrowLeft size={16} /> {t('cancel')}
+                                </button>
+                            </div>
 
-                            <div className="text-center py-8">
-                                <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                                    <Ticket size={32} />
+                            <div className="relative z-10">
+                                <div className={styles.couponIconWrapper}>
+                                    <Ticket size={40} />
                                 </div>
-                                <h3 className={styles.cardTitle} style={{ justifyContent: 'center', marginBottom: '12px' }}>
+                                
+                                <h3 className="text-2xl font-black mb-2 text-slate-900">
                                     {t('actions.coupon')}
                                 </h3>
-                                <p className={styles.subtitle} style={{ marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
+                                <p className="text-slate-500 mb-8 max-w-[320px] mx-auto font-medium leading-relaxed">
                                     {t('coupon_instructions')}
                                 </p>
 
@@ -324,6 +377,7 @@ export default function WalletClient() {
                                         value={couponCode}
                                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                                         className={styles.couponInput}
+                                        autoFocus
                                     />
 
                                     <div className={styles.couponActions}>
@@ -345,8 +399,9 @@ export default function WalletClient() {
                                 </form>
 
                                 {message && (
-                                    <div className={`mt-6 p-4 rounded-xl flex items-center justify-center gap-2 text-sm font-bold border ${message.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
-                                        {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />} {message.text}
+                                    <div className={`${styles.messageContainer} ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                        {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />} 
+                                        {message.text}
                                     </div>
                                 )}
                             </div>

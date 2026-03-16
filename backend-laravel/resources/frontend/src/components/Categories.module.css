@@ -1,0 +1,95 @@
+.section {
+    width: 100%;
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    max-width: 1000px;
+}
+
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.groupTitle {
+    font-size: 1.5rem;
+    color: var(--color-heading);
+    border-bottom: 2px solid var(--color-separator);
+    padding-bottom: 0.5rem;
+    width: fit-content;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.5rem;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    background: white;
+    padding: 1.5rem;
+    border: 1px solid var(--color-separator);
+    border-radius: var(--radius-card);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    gap: 1rem;
+    height: 100%;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--color-primary);
+}
+
+.iconWrapper {
+    background: #f8f9fa;
+    padding: 0.75rem;
+    border-radius: 12px;
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.svgIcon {
+    width: 32px;
+    height: 32px;
+}
+
+.textWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.label {
+    font-weight: 700;
+    color: var(--color-heading);
+    font-size: 1.1rem;
+}
+
+.desc {
+    font-size: 0.85rem;
+    color: var(--color-text);
+    line-height: 1.4;
+}
+
+/* Specific styling touches */
+.rentalCard .iconWrapper {
+    color: #0070f3;
+    /* Blueish for rental */
+    background: #eef7ff;
+}
+
+.salesCard .iconWrapper {
+    color: #f5a623;
+    /* Orangeish for sales */
+    background: #fff8e6;
+}

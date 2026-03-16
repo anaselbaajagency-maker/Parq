@@ -47,14 +47,16 @@ export default function UploadReceipt({ onUpload, isUploading }: UploadReceiptPr
                     <div className={styles.uploadIconCircle}>
                         <Upload size={24} />
                     </div>
-                    <p className={styles.uploadText}>{t('receipt.click_to_upload')}</p>
-                    <p className={styles.uploadSubtext}>JPG, PNG, PDF (Max 5MB)</p>
+                    <div className="flex flex-col items-center">
+                        <p className={styles.uploadText}>{t('receipt.click_to_upload')}</p>
+                        <p className={styles.uploadSubtext}>JPG, PNG, PDF (Max 5MB)</p>
+                    </div>
                     <input
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileChange}
                         accept="image/*,.pdf"
-                        className="hidden"
+                        className={styles.hiddenInput}
                         disabled={isUploading}
                     />
                 </div>
@@ -76,6 +78,7 @@ export default function UploadReceipt({ onUpload, isUploading }: UploadReceiptPr
                         onClick={handleSubmit}
                         disabled={isUploading}
                         className={`${styles.submitBtn} mt-4`}
+                        style={{ background: '#16a34a', color: '#fff', fontWeight: 700 }}
                     >
                         {isUploading ? (
                             <>

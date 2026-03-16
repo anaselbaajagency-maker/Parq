@@ -1,0 +1,29 @@
+config:
+  target: "{{ $processEnvironment.BASE_URL || 'http://127.0.0.1:8000' }}"
+  phases:
+    - duration: 120
+      arrivalRate: 10
+      name: warmup
+    - duration: 300
+      arrivalRate: 30
+      rampTo: 60
+      name: stress
+  defaults:
+    headers:
+      Accept: application/json
+  processor: "./processor.cjs"
+
+scenarios:
+  - name: listings-and-wallet
+    flow:
+      - get:
+          url: "/api/listings?per_page=15"
+          capture:
+            json: "$.data[0].id"
+            as: "listingId"
+      - get:
+          url: "/api/listings/{{ listingId || 1 }}"
+      - get:
+          url: "/api/wallet/balance"
+          headers:
+            Authorization: "Bearer {{ $processEnvironment.AUTH_TOKEN }}"

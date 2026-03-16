@@ -3,29 +3,57 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuthStore } from '@/lib/auth-store';
-import { fetchUserListings, updateListing, deleteListing, Listing } from '@/lib/api';
+import { fetchUserListings, updateListing, deleteListing, Listing, api, parseImageUrl } from '@/lib/api';
 import { Link } from '../../../../navigation';
 import { routes } from '@/lib/routes';
 import { Plus, Loader2, MoreHorizontal, Eye, Edit2, Pause, Play, Trash2, Package, ChevronDown, Image as ImageIcon } from 'lucide-react';
 import styles from './listings.module.css';
 import dashStyles from '../dashboard.module.css';
+import Image from 'next/image';
 
 export default function ListingsClient() {
-    const { user } = useAuthStore();
+    const { user, isAuthenticated } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
     const t = useTranslations('Dashboard');
 
     const [listings, setListings] = useState<Listing[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<number | string | null>(null);
+    const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+    const [balance, setBalance] = useState<number | null>(null);
 
     useEffect(() => {
-        if (user?.id || (user as any)?.google_id) {
-            const userId = user!.id;
-            fetchUserListings(userId)
-                .then(setListings)
-                .finally(() => setLoading(false));
-        }
-    }, [user]);
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        const loadListings = async () => {
+            if (!isMounted) return;
+
+            if (!user?.id) {
+                if (!isAuthenticated) setLoading(false);
+                return;
+            }
+
+            try {
+                const [data, walletData] = await Promise.all([
+                    fetchUserListings(user.id),
+                    api.wallet.getBalance()
+                ]);
+                setListings(data || []);
+                setBalance(walletData?.balance ?? 0);
+            } catch (error: any) {
+                if (error?.message?.includes('401')) {
+                    return;
+                }
+                console.error('Failed to fetch listings', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadListings();
+    }, [user, isMounted, isAuthenticated]);
 
     const handleToggleStatus = async (id: number | string, currentStatus: string) => {
         setProcessingId(id);
@@ -62,10 +90,23 @@ export default function ListingsClient() {
         return (
             <div className={styles.loadingState}>
                 <Loader2 className={styles.spinner} size={32} />
-                <p>Loading your listings...</p>
+                <p>{t('common.loading') || 'Chargement de vos annonces...'}</p>
             </div>
         );
     }
+
+    const getImageUrl = (item: Listing): string | null => {
+        if ((item as any).image_hero) return parseImageUrl((item as any).image_hero);
+        if ((item as any).main_image) return parseImageUrl((item as any).main_image);
+        if ((item as any).image) return parseImageUrl((item as any).image);
+        if ((item as any).images && Array.isArray((item as any).images) && (item as any).images.length > 0) {
+            const first = (item as any).images[0];
+            if (typeof first === 'string') return parseImageUrl(first);
+            if (typeof first === 'object' && first.image_path) return parseImageUrl(first.image_path);
+        }
+
+        return null;
+    };
 
     return (
         <div className={styles.container}>
@@ -88,10 +129,23 @@ export default function ListingsClient() {
                             <ChevronDown size={16} />
                         </button>
                     </div>
-                    <Link href="/create" className={styles.addBtn}>
-                        <Plus size={18} />
-                        <span>{t('listings_page.add_listing')}</span>
-                    </Link>
+                    {user?.email_verified_at && balance !== null && balance > 0 ? (
+                        <Link href="/create" className={styles.addBtn}>
+                            <Plus size={18} />
+                            <span>{t('listings_page.add_listing')}</span>
+                        </Link>
+                    ) : (
+                        <button onClick={() => {
+                            if (!user?.email_verified_at) {
+                                alert(t('listings_page.verify_email_first'));
+                            } else if (balance !== null && balance <= 0) {
+                                alert(t('listings_page.zero_balance'));
+                            }
+                        }} className={styles.addBtn}>
+                            <Plus size={18} />
+                            <span>{t('listings_page.add_listing')}</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -103,52 +157,44 @@ export default function ListingsClient() {
                     </div>
                     <h3 className={styles.emptyTitle}>{t('empty_fleet')}</h3>
                     <p className={styles.emptyDesc}>{t('empty_fleet_desc')}</p>
-                    <Link href="/create" className={styles.emptyBtn}>
-                        <Plus size={20} />
-                        {t('add_first_item')}
-                    </Link>
+                    {user?.email_verified_at && balance !== null && balance > 0 ? (
+                        <Link href="/create" className={styles.emptyBtn}>
+                            <Plus size={20} />
+                            {t('add_first_item')}
+                        </Link>
+                    ) : (
+                        <button onClick={() => {
+                            if (!user?.email_verified_at) {
+                                alert(t('listings_page.verify_email_first'));
+                            } else if (balance !== null && balance <= 0) {
+                                alert(t('listings_page.zero_balance'));
+                            }
+                        }} className={styles.emptyBtn}>
+                            <Plus size={20} />
+                            {t('add_first_item')}
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div className={styles.listingsGrid}>
                     {listings.map(item => (
                         <div key={item.id} className={styles.listingCard}>
                             {/* Image */}
-                            {/* Image */}
                             <div className={styles.cardImage}>
-                                {(() => {
-                                    // Helper to resolve image URL safely
-                                    const getImageUrl = (item: any) => {
-                                        if (item.image_hero) return item.image_hero;
-                                        if (item.main_image) return item.main_image;
-                                        if (item.image) return item.image;
-                                        // Fallback to first image in images array (which might be strings or objects)
-                                        if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-                                            const first = item.images[0];
-                                            if (typeof first === 'string') return first;
-                                            if (typeof first === 'object' && first.image_path) return first.image_path;
-                                        }
-                                        return null;
-                                    };
-
-                                    const imageUrl = getImageUrl(item);
-
-                                    return imageUrl ? (
-                                        <img
-                                            src={imageUrl}
-                                            alt={item.title}
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className={styles.placeholderBg}>
-                                            <ImageIcon size={32} className={styles.placeholderIcon} />
-                                        </div>
-                                    );
-                                })()}
-                                {/* Fallback for error state */}
-                                <div className={`${styles.placeholderBg} hidden`}>
+                                {getImageUrl(item) && !imageErrors[String(item.id)] ? (
+                                    <img
+                                        src={getImageUrl(item)!}
+                                        alt={item.title}
+                                        className={styles.cardImageElement}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }}
+                                        onError={() => setImageErrors(prev => ({ ...prev, [String(item.id)]: true }))}
+                                    />
+                                ) : (
+                                    <div className={styles.placeholderBg}>
+                                        <ImageIcon size={32} className={styles.placeholderIcon} />
+                                    </div>
+                                )}
+                                <div className={styles.placeholderBgHidden} aria-hidden="true">
                                     <ImageIcon size={32} className={styles.placeholderIcon} />
                                 </div>
                                 <div className={styles.cardStatus}>
@@ -195,8 +241,8 @@ export default function ListingsClient() {
                                         </div>
 
                                         <span className={styles.cardPrice}>
-                                            {item.price} DH
-                                            <span className={styles.priceUnit}>/{item.price_unit || 'day'}</span>
+                                            {item.price ? item.price.toString().replace(/dhs?|dh|\/jour|\/ jour/gi, '').trim() : ''} DH
+                                            {item.price_type === 'daily' && <span className={styles.priceUnit}>{t('listings_page.per_day')}</span>}
                                         </span>
                                     </div>
                                 </div>
@@ -247,12 +293,27 @@ export default function ListingsClient() {
                     ))}
 
                     {/* Add New Card */}
-                    <Link href="/create" className={styles.addCard}>
-                        <div className={styles.addCardIcon}>
-                            <Plus size={32} />
-                        </div>
-                        <span>{t('listings_page.add_new_listing')}</span>
-                    </Link>
+                    {user?.email_verified_at && balance !== null && balance > 0 ? (
+                        <Link href="/create" className={styles.addCard}>
+                            <div className={styles.addCardIcon}>
+                                <Plus size={32} />
+                            </div>
+                            <span>{t('listings_page.add_new_listing')}</span>
+                        </Link>
+                    ) : (
+                        <button onClick={() => {
+                            if (!user?.email_verified_at) {
+                                alert(t('listings_page.verify_email_first'));
+                            } else if (balance !== null && balance <= 0) {
+                                alert(t('listings_page.zero_balance'));
+                            }
+                        }} className={styles.addCard} style={{ width: '100%', height: '100%' }}>
+                            <div className={styles.addCardIcon}>
+                                <Plus size={32} />
+                            </div>
+                            <span>{t('listings_page.add_new_listing')}</span>
+                        </button>
+                    )}
                 </div>
             )}
         </div>

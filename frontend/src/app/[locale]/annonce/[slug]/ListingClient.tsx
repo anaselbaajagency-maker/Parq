@@ -3,27 +3,21 @@
 import { useEffect, useState } from 'react';
 import { notFound } from 'next/navigation';
 import { Link } from '../../../../navigation';
+import Image from 'next/image';
 import {
     MapPin,
     Star,
-    Share,
-    Heart,
     ShieldCheck,
-    Truck,
     CheckCircle2,
-    MessageSquare,
-    Globe,
     Award,
     Calendar,
-    Phone,
     Fuel,
     Gauge,
     Cog,
     Image as ImageIcon,
     Grid3X3,
-    Settings as SettingsIcon,
 } from 'lucide-react';
-import { fetchListingBySlug, Listing } from '@/lib/api';
+import { fetchListingBySlug, Listing, parseImageUrl } from '@/lib/api';
 import ViewTracker from './ViewTracker';
 import styles from './listing.module.css';
 import UnavailableListing from '@/components/UnavailableListing';
@@ -80,6 +74,8 @@ export default function ListingClient({ slug }: ListingClientProps) {
     const priceUnit = listing.price_unit || (isRent ? 'DH/jour' : 'DH');
     const numericPrice = parseInt(listing.price.toString().replace(/[^0-9]/g, '')) || 0;
 
+    // Helper to ensure image URLs start with a slash or http uses parseImageUrl now.
+
     // Parse images: handle if it's a JSON string or array, or fallback to single image
     let galleryImages: string[] = [];
     if (Array.isArray(listing.images)) {
@@ -101,8 +97,11 @@ export default function ListingClient({ slug }: ListingClientProps) {
         }
     }
 
-    const mainImage = galleryImages[0];
-    const sideImages = galleryImages.slice(1, 3);
+    // Use direct URLs
+    galleryImages = galleryImages.filter(Boolean);
+
+    const mainImage = galleryImages.length > 0 ? galleryImages[0] : null;
+    const sideImages = galleryImages.length > 1 ? galleryImages.slice(1, 3) : [];
     const remainingCount = Math.max(0, galleryImages.length - 3);
 
     return (
@@ -135,7 +134,7 @@ export default function ListingClient({ slug }: ListingClientProps) {
                 </header>
 
                 {/* Immersive Gallery */}
-                <div className={styles.gallery}>
+                <div className={`${styles.gallery} ${galleryImages.length === 1 ? styles.singleGallery : ''}`}>
                     {/* Main Image */}
                     <div className={styles.mainImageWrapper}>
                         {mainImage ? (
@@ -143,6 +142,7 @@ export default function ListingClient({ slug }: ListingClientProps) {
                                 src={mainImage}
                                 alt={listing.title}
                                 className={styles.mainImage}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center', position: 'absolute' }}
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
@@ -152,27 +152,32 @@ export default function ListingClient({ slug }: ListingClientProps) {
                     </div>
 
                     {/* Side Images (Desktop) */}
-                    <div className={styles.sideImages}>
-                        {sideImages.map((img, idx) => (
-                            <div key={idx} className={styles.subImageWrapper}>
-                                <img
-                                    src={img}
-                                    alt={`${listing.title} - ${idx + 2}`}
-                                    className={styles.subImage}
-                                />
-                            </div>
-                        ))}
-                        {/* Placeholder logic for empty slots if needed, or just fill space */}
-                        {sideImages.length < 2 && Array.from({ length: 2 - sideImages.length }).map((_, idx) => (
-                            <div key={`empty-${idx}`} className={styles.subImageWrapper} style={{ background: '#f3f4f6' }}></div>
-                        ))}
-                    </div>
+                    {galleryImages.length > 1 && (
+                        <div className={styles.sideImages}>
+                            {sideImages.map((img, idx) => (
+                                <div key={idx} className={styles.subImageWrapper}>
+                                    <img
+                                        src={img}
+                                        alt={`${listing.title} - ${idx + 2}`}
+                                        className={styles.subImage}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }}
+                                    />
+                                </div>
+                            ))}
+                            {/* Placeholder logic for empty slots if needed, or just fill space */}
+                            {sideImages.length < 2 && Array.from({ length: 2 - sideImages.length }).map((_, idx) => (
+                                <div key={`empty-${idx}`} className={styles.subImageWrapper} style={{ background: '#f3f4f6' }}></div>
+                            ))}
+                        </div>
+                    )}
 
-                    <button className={styles.showAllBtn}>
-                        <Grid3X3 size={18} />
-                        {t('show_all_photos')}
-                        {remainingCount > 0 && <span className="bg-gray-100 px-1.5 py-0.5 rounded-md text-xs ml-1">+{remainingCount}</span>}
-                    </button>
+                    {galleryImages.length > 1 && (
+                        <button className={styles.showAllBtn}>
+                            <Grid3X3 size={18} />
+                            {t('show_all_photos')}
+                            {remainingCount > 0 && <span className="bg-gray-100 px-1.5 py-0.5 rounded-md text-xs ml-1">+{remainingCount}</span>}
+                        </button>
+                    )}
                 </div>
 
                 {/* Main Layout: Left Content + Sticky Sidebar */}
@@ -198,42 +203,60 @@ export default function ListingClient({ slug }: ListingClientProps) {
                                     <span className={styles.specLabel}><CheckCircle2 size={14} /> {t('type')}</span>
                                     <span className={styles.specValue}>{isRent ? t('rent') : t('buy')}</span>
                                 </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Gauge size={14} /> {t('category')}</span>
-                                    <span className={styles.specValue}>{listing.category_name || listing.category_slug || t('standard')}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Award size={14} /> {t('brand')}</span>
-                                    <span className={styles.specValue}>{listing.brand || t('na')}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Award size={14} /> {t('model')}</span>
-                                    <span className={styles.specValue}>{listing.model || t('na')}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Calendar size={14} /> {t('year')}</span>
-                                    <span className={styles.specValue}>{listing.year || '2022'}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Fuel size={14} /> {t('fuel')}</span>
-                                    <span className={styles.specValue}>{listing.fuel ? t(`fuel_${listing.fuel}`) : t('diesel')}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Cog size={14} /> {t('gearbox')}</span>
-                                    <span className={styles.specValue}>{listing.gearbox ? t(`gearbox_${listing.gearbox}`) : t('na')}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Gauge size={14} /> {t('power')}</span>
-                                    <span className={styles.specValue}>{listing.power || t('na')}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Gauge size={14} /> {t('seats')}</span>
-                                    <span className={styles.specValue}>{listing.seats || t('na')}</span>
-                                </div>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><Gauge size={14} /> {t('tonnage')}</span>
-                                    <span className={styles.specValue}>{listing.tonnage || t('na')}</span>
-                                </div>
+                                {listing.category_name && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Gauge size={14} /> {t('category')}</span>
+                                        <span className={styles.specValue}>{listing.category_name}</span>
+                                    </div>
+                                )}
+                                {listing.brand && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Award size={14} /> {t('brand')}</span>
+                                        <span className={styles.specValue}>{listing.brand}</span>
+                                    </div>
+                                )}
+                                {listing.model && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Award size={14} /> {t('model')}</span>
+                                        <span className={styles.specValue}>{listing.model}</span>
+                                    </div>
+                                )}
+                                {listing.year && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Calendar size={14} /> {t('year')}</span>
+                                        <span className={styles.specValue}>{listing.year}</span>
+                                    </div>
+                                )}
+                                {listing.fuel && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Fuel size={14} /> {t('fuel')}</span>
+                                        <span className={styles.specValue}>{t(`fuel_${listing.fuel}`)}</span>
+                                    </div>
+                                )}
+                                {listing.gearbox && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Cog size={14} /> {t('gearbox')}</span>
+                                        <span className={styles.specValue}>{t(`gearbox_${listing.gearbox}`)}</span>
+                                    </div>
+                                )}
+                                {listing.power && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Gauge size={14} /> {t('power')}</span>
+                                        <span className={styles.specValue}>{listing.power}</span>
+                                    </div>
+                                )}
+                                {listing.seats && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Gauge size={14} /> {t('seats')}</span>
+                                        <span className={styles.specValue}>{listing.seats}</span>
+                                    </div>
+                                )}
+                                {listing.tonnage && (
+                                    <div className={styles.specItem}>
+                                        <span className={styles.specLabel}><Gauge size={14} /> {t('tonnage')}</span>
+                                        <span className={styles.specValue}>{listing.tonnage}</span>
+                                    </div>
+                                )}
                                 <div className={styles.specItem}>
                                     <span className={styles.specLabel}><ShieldCheck size={14} /> {t('condition')}</span>
                                     <span className={styles.specValue}>{listing.condition ? t(`condition_${listing.condition}`) : t('condition_verified')}</span>
@@ -242,45 +265,31 @@ export default function ListingClient({ slug }: ListingClientProps) {
                         </div>
 
                         {/* Features / Equipments */}
-                        <div className={styles.section}>
-                            <div className={styles.sectionTitle}>{t('equipments_options')}</div>
-                            <div className={styles.featuresGrid}>
-                                {listing.features && listing.features.length > 0 ? (
-                                    (() => {
-                                        try {
-                                            // Handle both array and string (JSON) cases
-                                            const features = typeof listing.features === 'string'
-                                                ? JSON.parse(listing.features)
-                                                : listing.features;
+                        {(() => {
+                            try {
+                                const features = typeof listing.features === 'string'
+                                    ? JSON.parse(listing.features)
+                                    : listing.features;
 
-                                            return Array.isArray(features) && features.map((feature: string, idx: number) => (
+                                if (!Array.isArray(features) || features.length === 0) return null;
+
+                                return (
+                                    <div className={styles.section}>
+                                        <div className={styles.sectionTitle}>{t('equipments_options')}</div>
+                                        <div className={styles.featuresGrid}>
+                                            {features.map((feature: string, idx: number) => (
                                                 <div key={idx} className={styles.featureItem}>
                                                     <CheckCircle2 size={20} className={styles.featureIcon} />
                                                     <div className={styles.featureText}>{t(feature) !== feature ? t(feature) : feature}</div>
                                                 </div>
-                                            ));
-                                        } catch (e) {
-                                            return <div className="text-gray-500 italic">{t('info_not_available')}</div>;
-                                        }
-                                    })()
-                                ) : (
-                                    <>
-                                        <div className={styles.featureItem}>
-                                            <Truck size={20} className={styles.featureIcon} />
-                                            <div className={styles.featureText}>{t('transport_included')}</div>
+                                            ))}
                                         </div>
-                                        <div className={styles.featureItem}>
-                                            <ShieldCheck size={20} className={styles.featureIcon} />
-                                            <div className={styles.featureText}>{t('insurance_included')}</div>
-                                        </div>
-                                        <div className={styles.featureItem}>
-                                            <SettingsIcon size={20} className={styles.featureIcon} />
-                                            <div className={styles.featureText}>{t('maintenance_included')}</div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
+                                    </div>
+                                );
+                            } catch (e) {
+                                return null;
+                            }
+                        })()}
                     </div>
 
                     {/* Right Column (Sticky Sidebar) */}
@@ -306,7 +315,13 @@ export default function ListingClient({ slug }: ListingClientProps) {
                                     <div className={styles.sellerProfile}>
                                         <div className={styles.avatar}>
                                             {listing.user?.avatar ? (
-                                                <img src={listing.user.avatar} alt={listing.user.full_name || 'User'} />
+                                                <Image
+                                                    src={listing.user.avatar}
+                                                    alt={listing.user.full_name || 'User'}
+                                                    fill
+                                                    sizes="56px"
+                                                    className="object-cover"
+                                                />
                                             ) : (
                                                 <div className={styles.avatarPlaceholder}>
                                                     {(listing.user?.full_name || listing.user_name || '?').charAt(0).toUpperCase()}

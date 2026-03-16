@@ -22,11 +22,17 @@ import {
     PanelTop as HeaderIcon,
     CreditCard,
     Info,
+    ShieldAlert,
+    AlertTriangle,
+    Loader2
 } from 'lucide-react';
+import { useAuthStore } from '@/lib/auth-store';
 
 export default function AdminSettingsPage() {
     const params = useParams();
     const locale = params.locale as string;
+    const { user: currentUser } = useAuthStore();
+    const [error, setError] = useState<string | null>(null);
 
     const [settings, setSettings] = useState<Settings | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -44,6 +50,8 @@ export default function AdminSettingsPage() {
 
     useEffect(() => {
         async function loadData() {
+            setLoading(true);
+            setError(null);
             try {
                 const [settingsData, categoriesData] = await Promise.all([
                     fetchSettings(),
@@ -61,8 +69,14 @@ export default function AdminSettingsPage() {
                     setShowSocialLinks(settingsData.footer_show_social_links === true || settingsData.footer_show_social_links === '1' || settingsData.footer_show_social_links === 1);
                     setCopyrightText(settingsData.footer_copyright_text || '');
                 }
-            } catch (error) {
-                console.error('Failed to load settings:', error);
+            } catch (err: any) {
+                const errorMessage = err?.message || (typeof err === 'string' ? err : '');
+                if (errorMessage.includes('ACCESS_DENIED')) {
+                    setError('ACCESS_DENIED');
+                } else {
+                    console.error('Failed to load settings:', err);
+                    setError('FETCH_ERROR');
+                }
             } finally {
                 setLoading(false);
             }
@@ -105,9 +119,11 @@ export default function AdminSettingsPage() {
             } else {
                 throw new Error('Failed to save settings');
             }
-        } catch (error) {
-            console.error('Save settings error:', error);
-            showAlert('error', "Échec de l'enregistrement.", 'Erreur');
+        } catch (err: any) {
+            if (err.message !== 'ACCESS_DENIED') {
+                console.error('Save settings error:', err);
+                showAlert('error', "Échec de l'enregistrement.", 'Erreur');
+            }
         } finally {
             setSaving(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -121,6 +137,40 @@ export default function AdminSettingsPage() {
                     <div className="h-10 w-64 bg-gray-200 rounded"></div>
                     <div className="h-48 bg-gray-100 rounded-2xl"></div>
                     <div className="h-64 bg-gray-100 rounded-2xl"></div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error === 'ACCESS_DENIED' || (!currentUser || currentUser.role !== 'ADMIN')) {
+        return (
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger les paramètres globaux.</p>
+                    <button onClick={() => window.location.reload()} className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors">Réessayer</button>
                 </div>
             </div>
         );

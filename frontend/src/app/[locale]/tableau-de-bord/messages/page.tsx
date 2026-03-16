@@ -4,14 +4,16 @@ import { useAuthStore } from '@/lib/auth-store';
 import { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
-import { Search, Send, MoreHorizontal, Circle, Check, CheckCheck } from 'lucide-react';
+import { Link } from '@/navigation';
+import { Search, Send, MoreHorizontal, Check, CheckCheck } from 'lucide-react';
 import styles from './messages.module.css';
 import { apiMessages, Conversation, Message } from '@/lib/api';
 
 export default function MessagesPage() {
-    const { user } = useAuthStore();
+    const { user, isAuthenticated } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
     const t = useTranslations('Dashboard');
-    const [selectedChat, setSelectedChat] = useState<number | null>(null);
+    const [selectedChat, setSelectedChat] = useState<number | string | null>(null);
     const [message, setMessage] = useState('');
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -36,7 +38,10 @@ export default function MessagesPage() {
                 // Determine selected chat logic (e.g. first one)
                 // setSelectedChat(data[0].user.id);
             }
-        } catch (e) {
+        } catch (e: any) {
+            if (e?.message?.includes('401')) {
+                return;
+            }
             console.error(e);
         } finally {
             setLoading(false);
@@ -44,9 +49,18 @@ export default function MessagesPage() {
     };
 
     useEffect(() => {
-        if (!user) return;
-        fetchConversations();
-    }, [user, recipientId]);
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
+        if (user) {
+            fetchConversations();
+        } else if (!isAuthenticated) {
+            setLoading(false);
+        }
+    }, [user, isMounted, isAuthenticated, recipientId]);
 
     // Fetch messages for selected chat
     useEffect(() => {
@@ -84,10 +98,10 @@ export default function MessagesPage() {
             const optimisticMsg: Message = {
                 id: tempId,
                 sender_id: Number(user!.id),
-                receiver_id: selectedChat,
+                receiver_id: Number(selectedChat),
                 content: message,
                 created_at: new Date().toISOString(),
-                sender: user
+                sender: user!
             };
             setMessages(prev => [...prev, optimisticMsg]);
             setMessage('');
@@ -105,7 +119,27 @@ export default function MessagesPage() {
     const selectedChatUser = conversations.find(c => c.user.id === selectedChat)?.user || (recipientId ? { id: Number(recipientId), name: recipientName, avatar: null } : null); // Fallback for new chat
 
 
-    if (!user) return null;
+    if (!isMounted) return null;
+
+    if (!user && isAuthenticated && loading) {
+        return (
+            <div className={styles.loadingState} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '400px' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div className={styles.spinner} style={{ width: '40px', height: '40px', border: '3px solid #f3f3f3', borderTop: '3px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
+                    <p style={{ color: '#64748b', fontWeight: 500 }}>Chargement de la messagerie...</p>
+                    <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                </div>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '400px' }}>
+                <Link href="/login" style={{ color: '#2563eb', fontWeight: 700 }}>Veuillez vous connecter pour voir vos messages</Link>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.container}>

@@ -1,0 +1,1 @@
+<?php namespace App\Models; use CodeIgniter\Model; class ListingViewModel extends Model { protected $table = 'listing_views'; protected $useTimestamps = true; protected $createdField = 'created_at'; protected $updatedField = 'updated_at'; }

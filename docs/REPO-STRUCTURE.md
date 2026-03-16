@@ -21,3 +21,7 @@
 
 Treat each folder as an independent app with its own dependencies and CI steps.
 
+## Ops / Automation
+
+- `scripts/ops/`: backup/restore operational scripts
+- `scripts/github/configure-repo.sh`: branch protection + environments bootstrap via GitHub CLI

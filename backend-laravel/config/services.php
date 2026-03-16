@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'sentry' => [
+        'enabled' => env('SENTRY_ENABLED', false),
+        'backend_dsn' => env('SENTRY_BACKEND_DSN'),
+        'timeout' => (int) env('SENTRY_HTTP_TIMEOUT', 2),
+    ],
+
 ];

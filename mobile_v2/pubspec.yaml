@@ -1,0 +1,56 @@
+name: parq_v2
+description: Application Mobile PARQ V2 - Marketplace & Wallet
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.2.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # State Management & DI
+  flutter_riverpod: ^2.4.9
+
+  # Networking
+  dio: ^5.4.0
+
+  # Routing
+  go_router: ^13.1.0
+
+  # Storage
+  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.2
+
+  # UI & Assets
+  cached_network_image: ^3.3.1
+  flutter_svg: ^2.0.9
+  shimmer: ^3.0.0
+  google_fonts: ^6.1.0 # Replacing local Cairo for simplicity and identical rendering
+
+  # Media & Forms
+  image_picker: ^1.0.7
+
+  # Auth
+  google_sign_in: ^6.2.1
+
+  # Utilities
+  intl: ^0.20.2
+  json_annotation: ^4.8.1
+  freezed_annotation: ^2.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.8
+  json_serializable: ^6.7.1
+  freezed: ^2.4.7
+
+flutter:
+  uses-material-design: true
+  generate: true

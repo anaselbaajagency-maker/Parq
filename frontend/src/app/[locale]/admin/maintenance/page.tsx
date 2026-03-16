@@ -3,20 +3,26 @@
 import { useEffect, useState } from 'react';
 import { fetchSettings, updateSettings } from '@/lib/api';
 import styles from './maintenance.module.css';
-import { Save, Check, X, ShieldAlert, Activity, Power, Clock, Loader2 } from 'lucide-react';
+import { Save, Check, X, ShieldAlert, Activity, Power, Clock, Loader2, AlertTriangle } from 'lucide-react';
 import { useAlert } from '@/context/AlertContext';
+import { useAuthStore } from '@/lib/auth-store';
 
 export default function MaintenancePage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     // Maintenance State
+    // Maintenance State
     const [maintenanceMode, setMaintenanceMode] = useState(false);
     const [maintenanceMessage, setMaintenanceMessage] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const { user: currentUser } = useAuthStore();
     const { showAlert } = useAlert();
 
     useEffect(() => {
         async function loadData() {
+            setLoading(true);
+            setError(null);
             try {
                 const settingsData = await fetchSettings();
                 if (settingsData) {
@@ -25,9 +31,15 @@ export default function MaintenancePage() {
                     setMaintenanceMode(isActive);
                     setMaintenanceMessage(settingsData.maintenance_message || '');
                 }
-            } catch (error) {
-                console.error('Failed to load maintenance settings:', error);
-                showAlert('error', 'Impossible de charger les paramètres de maintenance.', 'Erreur');
+            } catch (err: any) {
+                const errorMessage = err?.message || (typeof err === 'string' ? err : '');
+                if (errorMessage.includes('ACCESS_DENIED')) {
+                    setError('ACCESS_DENIED');
+                } else {
+                    console.error('Failed to load maintenance settings:', err);
+                    setError('FETCH_ERROR');
+                    showAlert('error', 'Impossible de charger les paramètres de maintenance.', 'Erreur');
+                }
             } finally {
                 setLoading(false);
             }
@@ -46,15 +58,51 @@ export default function MaintenancePage() {
 
             await updateSettings(settingsToUpdate);
             showAlert('success', 'Paramètres de maintenance mis à jour avec succès.', 'Succès');
-        } catch (error) {
-            console.error('Failed to save settings:', error);
-            showAlert('error', 'Échec de la mise à jour des paramètres.', 'Erreur');
+        } catch (error: any) {
+            if (error.message !== 'ACCESS_DENIED') {
+                console.error('Failed to save settings:', error);
+                showAlert('error', 'Échec de la mise à jour des paramètres.', 'Erreur');
+            }
         } finally {
             setSaving(false);
         }
     };
 
     if (loading) return <div className={styles.loadingState}><Loader2 className={styles.spinner} size={40} /></div>;
+
+    if (error === 'ACCESS_DENIED' || (!currentUser || currentUser.role !== 'ADMIN')) {
+        return (
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger les paramètres de maintenance.</p>
+                    <button onClick={() => window.location.reload()} className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors">Réessayer</button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.container}>

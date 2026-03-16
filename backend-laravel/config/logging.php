@@ -36,6 +36,8 @@ return [
         'trace' => env('LOG_DEPRECATIONS_TRACE', false),
     ],
 
+    'structured' => env('LOG_STRUCTURED', false),
+
     /*
     |--------------------------------------------------------------------------
     | Log Channels
@@ -63,6 +65,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            'tap' => [\App\Logging\JsonFormatterTap::class],
         ],
 
         'daily' => [
@@ -71,6 +74,16 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+            'tap' => [\App\Logging\JsonFormatterTap::class],
+        ],
+
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => env('AUDIT_LOG_LEVEL', 'info'),
+            'days' => env('AUDIT_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+            'tap' => [\App\Logging\JsonFormatterTap::class],
         ],
 
         'slack' => [
@@ -99,6 +112,7 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'handler' => StreamHandler::class,
             'formatter' => env('LOG_STDERR_FORMATTER'),
+            'tap' => [\App\Logging\JsonFormatterTap::class],
             'with' => [
                 'stream' => 'php://stderr',
             ],

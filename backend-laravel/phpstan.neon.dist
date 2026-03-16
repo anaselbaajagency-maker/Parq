@@ -1,0 +1,8 @@
+parameters:
+    level: 0
+    paths:
+        - app
+        - routes
+    tmpDir: storage/phpstan
+    reportUnmatchedIgnoredErrors: false
+    treatPhpDocTypesAsCertain: false

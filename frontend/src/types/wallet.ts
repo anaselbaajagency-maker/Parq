@@ -28,12 +28,15 @@ export interface Transaction {
 export interface TopUpRequest {
     id: number;
     method: PaymentMethod;
+    method_label?: string;
     amount: number;
     status: TopUpStatus;
+    status_label?: string;
     reference: string;
     instructions?: string;
     instructions_ar?: string;
     rib?: string;
     payment_code?: string;
+    proof_image?: string | null;
     created_at: string;
 }

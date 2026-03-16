@@ -1,0 +1,133 @@
+.container {
+    width: 100%;
+    margin: 0.5rem 0;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 0 0.5rem;
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-heading);
+}
+
+.titleLink {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    align-items: center;
+}
+
+.titleLink:hover .title {
+    text-decoration: underline;
+}
+
+.controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .controls {
+        display: none;
+    }
+}
+
+[dir="rtl"] .controls {
+    flex-direction: row-reverse;
+}
+
+.controlBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid #ddd;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.controlBtn:hover {
+    border-color: black;
+    transform: scale(1.05);
+}
+
+.carousel {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    scroll-behavior: smooth;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    scroll-snap-type: x mandatory;
+}
+
+.carousel::-webkit-scrollbar {
+    display: none;
+}
+
+.cardLink {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    min-width: 280px;
+    scroll-snap-align: start;
+}
+
+.placeholderCard {
+    min-width: 280px;
+    height: 100%;
+    min-height: 380px;
+    /* Approximate height of a Listing Card */
+    background-color: #f3f4f6;
+    border-radius: 16px;
+    scroll-snap-align: start;
+    border: 2px dashed #e5e7eb;
+}
+
+@media (max-width: 768px) {
+    .carousel {
+        gap: 1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .cardLink {
+        min-width: 75vw;
+        scroll-snap-align: center;
+    }
+
+    .placeholderCard {
+        min-width: 75vw;
+        scroll-snap-align: center;
+        min-height: 300px;
+    }
+
+    .title {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .cardLink {
+        min-width: 85vw;
+    }
+
+    .placeholderCard {
+        min-width: 85vw;
+    }
+}

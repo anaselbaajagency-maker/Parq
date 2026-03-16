@@ -1,0 +1,37 @@
+{
+    "@@locale": "ar",
+    "home": "الرئيسية",
+    "rent": "كراء",
+    "buy": "شراء",
+    "listItem": "أضف إعلانك",
+    "login": "دخول",
+    "signup": "تسجيل",
+    "dashboard": "لوحة التحكم",
+    "myListings": "إعلاناتي",
+    "adminDashboard": "المسؤول",
+    "logout": "تسجيل الخروج",
+    "helpCenter": "مركز المساعدة",
+    
+    "heroTitle": "التميز",
+    "heroTitleAccent": "في متناول يدك.",
+    "heroSubtitle": "أدر أسطولك واحصل على معدات متميزة عبر منصة موحدة وآمنة.",
+    "btnRent": "أريد الكراء",
+    "btnBuy": "أريد الشراء",
+    "searchPlaceholder": "عماش كتقلب؟",
+    
+    "loginTitle": "مرحبًا بعودتك",
+    "loginSubtitle": "سجل الدخول لإدارة إعلاناتك وحجوزاتك.",
+    "emailLabel": "البريد الإلكتروني",
+    "passwordLabel": "كلمة المرور",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "loginBtn": "دخول",
+    "loggingIn": "جاري الدخول...",
+    "continueGoogle": "المتابعة باستخدام Google",
+    "noAccount": "ليس لديك حساب؟",
+    "signupLink": "سجل الآن",
+    
+    "walletTitle": "محفظتي",
+    "currentBalance": "الرصيد الحالي",
+    "dailyExpense": "المصاريف اليومية",
+    "topUp": "شحن الحساب"
+}

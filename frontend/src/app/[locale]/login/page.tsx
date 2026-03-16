@@ -5,33 +5,46 @@ import { useRouter } from '../../../navigation';
 import { apiLogin, apiGoogleLogin } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { useTranslations } from 'next-intl';
-import { LogIn, Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Loader2, ArrowRight } from 'lucide-react';
 import { Link } from '../../../navigation';
 import { useGoogleLogin } from '@react-oauth/google';
 import styles from './auth.module.css';
+import Image from 'next/image';
+
+function toErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    if (typeof error === 'string') {
+        return error;
+    }
+    return fallback;
+}
 
 export default function LoginPage() {
     const t = useTranslations('Auth');
     const router = useRouter();
     const setAuth = useAuthStore(state => state.setAuth);
+    const { isAuthenticated, user } = useAuthStore();
+    const [mounted, setMounted] = useState(false);
 
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const { isAuthenticated, user } = useAuthStore();
-    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleGoogleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             try {
-                // Fetch info
                 const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
                 });
                 const userInfo = await userInfoRes.json();
 
-                // Backend login
                 const data = await apiGoogleLogin({
                     email: userInfo.email,
                     google_id: userInfo.sub,
@@ -40,10 +53,9 @@ export default function LoginPage() {
                 });
 
                 setAuth(data.user, data.token);
-                // We use useEffect to redirect
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error('Google Login Error', err);
-                setError(err.message || 'Google Login failed');
+                setError(toErrorMessage(err, 'Google Login failed'));
                 setLoading(false);
             }
         },
@@ -53,10 +65,6 @@ export default function LoginPage() {
     });
 
     useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    useEffect(() => {
         if (mounted && isAuthenticated) {
             const searchParams = new URLSearchParams(window.location.search);
             const redirectUrl = searchParams.get('redirect');
@@ -64,15 +72,14 @@ export default function LoginPage() {
             const locale = (localeFromPath === 'fr' || localeFromPath === 'ar') ? localeFromPath : 'fr';
 
             if (redirectUrl) {
-                // Robust removal of existing locale prefix if any
                 const cleanRedirectUrl = redirectUrl.replace(/^\/(fr|ar)(\/|$)/, '/');
                 const finalPath = `/${locale}${cleanRedirectUrl.startsWith('/') ? '' : '/'}${cleanRedirectUrl}`;
-                window.location.href = finalPath;
+                router.replace(finalPath as any);
             } else {
-                window.location.href = `/${locale}${user?.role === 'ADMIN' ? '/admin' : '/tableau-de-bord'}`;
+                router.replace((user?.role === 'ADMIN' ? '/admin' : '/tableau-de-bord') as any);
             }
         }
-    }, [isAuthenticated, mounted, user]);
+    }, [isAuthenticated, mounted, user, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -82,37 +89,20 @@ export default function LoginPage() {
         try {
             const data = await apiLogin(formData);
             setAuth(data.user, data.token);
-
-            // Check for redirect param
-            const searchParams = new URLSearchParams(window.location.search);
-            const redirectUrl = searchParams.get('redirect');
-            const localeFromPath = window.location.pathname.split('/')[1];
-            const locale = (localeFromPath === 'fr' || localeFromPath === 'ar') ? localeFromPath : 'fr';
-
-            if (redirectUrl) {
-                // Robust removal of existing locale prefix if any
-                const cleanRedirectUrl = redirectUrl.replace(/^\/(fr|ar)(\/|$)/, '/');
-                const finalPath = `/${locale}${cleanRedirectUrl.startsWith('/') ? '' : '/'}${cleanRedirectUrl}`;
-                window.location.href = finalPath;
-            }
-            // If no redirect param, the useEffect will handle default redirect
-        } catch (err: any) {
-            // Parse API error message
+        } catch (err: unknown) {
             let errorMessage = 'Échec de la connexion';
-            if (err.message) {
+            const rawErrorMessage = toErrorMessage(err, '');
+            if (rawErrorMessage) {
                 try {
-                    // Try to parse JSON error from API
-                    const parsed = JSON.parse(err.message.replace(/^API Error: \d+ - /, ''));
+                    const parsed = JSON.parse(rawErrorMessage.replace(/^API Error: \d+ - /, ''));
                     if (parsed.errors) {
-                        // Get first error message from validation errors
                         const firstError = Object.values(parsed.errors)[0];
                         errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
                     } else if (parsed.message) {
                         errorMessage = parsed.message;
                     }
                 } catch {
-                    // If not JSON, use plain message
-                    errorMessage = err.message;
+                    errorMessage = rawErrorMessage;
                 }
             }
             setError(errorMessage);
@@ -120,111 +110,105 @@ export default function LoginPage() {
         }
     };
 
-    if (!mounted) return null;
-    if (isAuthenticated) return <div className="min-h-screen flex items-center justify-center bg-white"><Loader2 className="animate-spin" size={32} /></div>;
-
     return (
-        <div className={styles.page}>
-            {/* Left Section: Hero */}
-            <div className={styles.heroSection}>
-                <div className={styles.heroBackground}>
-                    <div className={styles.gridPattern}></div>
-                    <div className={styles.glow}></div>
-                </div>
-
-                <div className={styles.heroContent}>
-                    <div>
-                        <div className={styles.heroTag}>
-                            {t('hero_tag')}
-                        </div>
-                        <h1 className={styles.heroTitle}>
-                            {t('hero_title')} <br /> <span>{t('hero_title_accent')}</span>
-                        </h1>
-                        <p className={styles.heroSubtitle}>
-                            {t('hero_subtitle')}
-                        </p>
+        <div className={styles.page} suppressHydrationWarning>
+            {/* ——— Left: Brand Panel ——— */}
+            <div className={styles.brandPanel}>
+                <div className={styles.orb + ' ' + styles.orb1} />
+                <div className={styles.orb + ' ' + styles.orb2} />
+                <div className={styles.brandContent}>
+                    <div className={styles.brandLogo}>
+                        <div className={styles.brandLogoIcon}>P</div>
+                        <span className={styles.brandLogoText}>PARQ</span>
                     </div>
-
-                    <div className={styles.heroFooter}>
-                        <span>{t('footer_rights')}</span>
-                        <span>{t('privacy_policy')}</span>
-                        <span>{t('terms_of_service')}</span>
-                    </div>
+                    <h2 className={styles.brandTagline}>
+                        {t('welcome_back')}<br />
+                        <span>{t('login_subtitle')}</span>
+                    </h2>
+                    <p className={styles.brandDescription}>
+                        {t('brand_description')}
+                    </p>
                 </div>
             </div>
 
-            {/* Right Section: Form */}
-            <div className={styles.formSection}>
+            {/* ——— Right: Form Panel ——— */}
+            <div className={styles.formPanel}>
                 <div className={styles.card}>
-                    <header className={styles.header}>
-                        <div className={styles.logoArea}>
-                            <h1 className="text-3xl font-bold text-slate-900 tracking-tighter flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-lg bg-yellow-500 flex items-center justify-center text-white">P</span>
-                                PARQ
-                            </h1>
+                    {isAuthenticated ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0' }}>
+                            <Loader2 className="animate-spin" size={48} style={{ color: '#f59e0b', marginBottom: '1rem' }} />
+                            <p style={{ color: '#64748b', fontWeight: 500 }}>{t('logging_in')}</p>
                         </div>
-                        <h1 className={styles.title}>{t('welcome_back')}</h1>
-                        <p className={styles.subtitle}>{t('login_subtitle')}</p>
-                    </header>
+                    ) : (
+                        <>
+                            <header className={styles.header}>
+                                <div className={styles.logoArea}>
+                                    <div className={styles.brandLogo} style={{ justifyContent: 'center' }}>
+                                        <div className={styles.brandLogoIcon}>P</div>
+                                        <span className={styles.brandLogoText} style={{ color: '#0f172a' }}>PARQ</span>
+                                    </div>
+                                </div>
+                                <h2 className={styles.title}>{t('welcome_back')}</h2>
+                                <p className={styles.subtitle}>{t('login_subtitle')}</p>
+                            </header>
 
-                    <form className={styles.form} onSubmit={handleSubmit}>
-                        {error && <div className={styles.error}>{error}</div>}
+                            <form className={styles.form} onSubmit={handleSubmit}>
+                                {error && <div className={styles.error}>{error}</div>}
 
-                        <div className={styles.formGroup}>
-                            <label className={styles.label}>{t('email_label')}</label>
-                            <div className="relative">
-                                <input
-                                    type="email"
-                                    required
-                                    value={formData.email}
-                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    className={styles.input}
-                                    placeholder="name@company.com"
-                                    style={{ paddingInlineStart: '1rem' }}
-                                />
+                                <div className={styles.formGroup}>
+                                    <label className={styles.label}>{t('email_label')}</label>
+                                    <input
+                                        type="email"
+                                        required
+                                        value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                        className={styles.input}
+                                        placeholder="name@company.com"
+                                        id="login-email"
+                                    />
+                                </div>
+
+                                <div className={styles.formGroup}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                        <label className={styles.label}>{t('password_label')}</label>
+                                        <Link href="/forgot-password" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f59e0b' }}>{t('forgot_password')}</Link>
+                                    </div>
+                                    <input
+                                        type="password"
+                                        required
+                                        value={formData.password}
+                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                        className={styles.input}
+                                        placeholder="••••••••"
+                                        id="login-password"
+                                    />
+                                </div>
+
+                                <button type="submit" className={styles.button} disabled={loading} id="login-submit">
+                                    {loading && <Loader2 className="animate-spin" size={18} />}
+                                    {loading ? t('logging_in') : t('login_btn')}
+                                    {!loading && <ArrowRight size={16} className="rtl:rotate-180" />}
+                                </button>
+                            </form>
+
+                            <div className={styles.divider}>{t('or_continue')}</div>
+
+                            <div className={styles.socialLogin}>
+                                <button className={styles.socialButton} onClick={() => handleGoogleLogin()} type="button" id="google-login">
+                                    <Image src="https://www.google.com/favicon.ico" alt="Google" width={18} height={18} />
+                                    <span style={{ fontWeight: 500, color: '#475569' }}>{t('continue_google')}</span>
+                                </button>
                             </div>
-                        </div>
 
-                        <div className={styles.formGroup}>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className={styles.label}>{t('password_label')}</label>
-                                <Link href="/forgot-password" className="text-sm font-semibold text-blue-600 hover:text-blue-700">{t('forgot_password')}</Link>
+                            <div className={styles.footer}>
+                                {t('no_account')}
+                                <Link href="/register" className={styles.link}>{t('signup_link')}</Link>
                             </div>
-                            <div className="relative">
-                                <input
-                                    type="password"
-                                    required
-                                    value={formData.password}
-                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                    className={styles.input}
-                                    placeholder="••••••••"
-                                    style={{ paddingInlineStart: '1rem' }}
-                                />
-                            </div>
-                        </div>
-
-                        <button type="submit" className={styles.button} disabled={loading}>
-                            {loading ? <Loader2 className="animate-spin" size={20} /> : null}
-                            {loading ? t('logging_in') : t('login_btn')}
-                            {!loading && <ArrowRight size={18} className="rtl:rotate-180" />}
-                        </button>
-                    </form>
-
-                    <div className={styles.divider}>{t('or_continue')}</div>
-
-                    <div className={styles.socialLogin}>
-                        <button className={styles.socialButton} onClick={() => handleGoogleLogin()} type="button">
-                            <img src="https://www.google.com/favicon.ico" alt="Google" width={20} height={20} />
-                            <span className="font-medium text-slate-700">{t('continue_google')}</span>
-                        </button>
-                    </div>
-
-                    <div className={styles.footer}>
-                        {t('no_account')}
-                        <Link href="/register" className={styles.link}>{t('signup_link')}</Link>
-                    </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
     );
+
 }

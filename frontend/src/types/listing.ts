@@ -27,6 +27,7 @@ export interface Category {
     homepage_order?: number;
     show_on_homepage: boolean | number;
     listing_count?: number;
+    listings_count?: number;
 }
 
 export interface City {
@@ -53,7 +54,7 @@ export interface Settings {
     maintenance_message?: string;
     footer_copyright_text?: string;
     footer_show_social_links?: boolean | string | number;
-    homepage_categories?: any[];
+    homepage_categories?: string[];
 }
 
 export interface ListingCar {
@@ -110,6 +111,7 @@ export interface Listing {
     created_at: string;
     published_at?: string;
     daily_cost: number;
+    rejection_reason?: string;
 
     // Relations
     category?: Category;

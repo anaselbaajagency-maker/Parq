@@ -1,0 +1,249 @@
+/* Premium Wallet Components Styles */
+
+/* Low Balance Alert */
+.alertContainer {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+}
+
+.alertWarning {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3cd 100%);
+    border: 1px solid #f59e0b;
+}
+
+.alertCritical {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border: 1px solid #ef4444;
+}
+
+.alertIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.alertIconWarning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+}
+
+.alertIconCritical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+}
+
+.alertContent {
+    flex: 1;
+}
+
+.alertTitle {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.alertTitleWarning {
+    color: #92400e;
+}
+
+.alertTitleCritical {
+    color: #991b1b;
+}
+
+.alertText {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.alertTextWarning {
+    color: #b45309;
+}
+
+.alertTextCritical {
+    color: #b91c1c;
+}
+
+.alertBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.alertBtnWarning {
+    background: #f59e0b;
+    color: #000000;
+}
+
+.alertBtnWarning:hover {
+    background: #d97706;
+    transform: translateY(-1px);
+}
+
+.alertBtnCritical {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.alertBtnCritical:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+}
+
+/* Wallet Summary Card */
+.walletCard {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 24px;
+    padding: 28px;
+    color: #ffffff;
+    position: relative;
+    overflow: hidden;
+}
+
+.walletCard::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -30%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(255, 184, 0, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.walletHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    position: relative;
+    z-index: 1;
+}
+
+.walletLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.walletBalance {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.walletAmount {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+}
+
+.walletCurrency {
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffb800;
+}
+
+.walletIcon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: rgba(255, 184, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffb800;
+}
+
+.walletStats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 1;
+}
+
+.walletStat {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.walletStatIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.walletStatInfo {
+    flex: 1;
+}
+
+.walletStatLabel {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 4px;
+}
+
+.walletStatValue {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.walletStatValueDanger {
+    color: #fca5a5;
+}
+
+/* Recharge Button */
+.rechargeBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 16px;
+    margin-top: 24px;
+    background: #ffb800;
+    color: #000000;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.rechargeBtn:hover {
+    background: #e5a600;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 184, 0, 0.3);
+}

@@ -8,9 +8,10 @@ import {
     Category
 } from '@/lib/api';
 import styles from './featured.module.css';
-import { Save, Layout, Check, X, CheckSquare, Settings2, Database } from 'lucide-react';
+import { Save, Layout, Check, X, CheckSquare, Settings2, Database, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api';
 import { useAlert } from '@/context/AlertContext';
+import { useAuthStore } from '@/lib/auth-store';
 
 export default function FeaturedCategoriesPage() {
     const [settings, setSettings] = useState<Settings | null>(null);
@@ -22,12 +23,16 @@ export default function FeaturedCategoriesPage() {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [listingsCount, setListingsCount] = useState(6);
     const [hasChanges, setHasChanges] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const { user: currentUser } = useAuthStore();
 
     useEffect(() => {
         loadData();
     }, []);
 
     async function loadData() {
+        setLoading(true);
+        setError(null);
         try {
             const [settingsData, categoriesData] = await Promise.all([
                 fetchSettings(),
@@ -47,8 +52,14 @@ export default function FeaturedCategoriesPage() {
             if (settingsData) {
                 setListingsCount(Number(settingsData.homepage_listings_count) || 6);
             }
-        } catch (error) {
-            console.error('Failed to load data:', error);
+        } catch (err: any) {
+            const errorMessage = err?.message || (typeof err === 'string' ? err : '');
+            if (errorMessage.includes('ACCESS_DENIED')) {
+                setError('ACCESS_DENIED');
+            } else {
+                console.error('Failed to load data:', err);
+                setError('FETCH_ERROR');
+            }
         } finally {
             setLoading(false);
         }
@@ -83,9 +94,11 @@ export default function FeaturedCategoriesPage() {
 
             // Reload categories to reflect changes in UI state if needed
             // But we already have the state locally, so just good.
-        } catch (error) {
-            console.error('Save failed', error);
-            showAlert('error', 'Échec de la mise à jour.', 'Erreur');
+        } catch (error: any) {
+            if (error.message !== 'ACCESS_DENIED') {
+                console.error('Save failed', error);
+                showAlert('error', 'Échec de la mise à jour.', 'Erreur');
+            }
         } finally {
             setSaving(false);
         }
@@ -95,6 +108,40 @@ export default function FeaturedCategoriesPage() {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+            </div>
+        );
+    }
+
+    if (error === 'ACCESS_DENIED' || (!currentUser || currentUser.role !== 'ADMIN')) {
+        return (
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger les catégories en vedette.</p>
+                    <button onClick={loadData} className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors">Réessayer</button>
+                </div>
             </div>
         );
     }

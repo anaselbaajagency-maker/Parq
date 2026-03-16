@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:strict": "eslint --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "quality:report": "node scripts/quality-report.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { fetchCategories, fetchCities, fetchListing, updateListing, Category, City, Listing } from '@/lib/api';
+import { fetchCategories, fetchCities, fetchListing, updateListing, Category, City, Listing, parseImageUrl } from '@/lib/api';
 import { Grid3X3, MapPin, Loader2, ArrowLeft, Upload, X, ImageIcon } from 'lucide-react';
 import styles from './edit.module.css';
 import { Link, useRouter } from '../../../../../../navigation';
@@ -86,13 +86,13 @@ export default function EditListingClient({ id }: { id: string }) {
                         with_driver: !!listingData.machinery?.with_driver
                     });
                     // Set existing hero image preview
-                    const heroUrl = listingData.image_hero || listingData.main_image;
+                    const heroUrl = parseImageUrl(listingData.image_hero || listingData.main_image);
                     if (heroUrl) {
                         setHeroPreview(heroUrl);
                     }
                     // Set existing gallery images (Filter out the hero image)
                     if (listingData.images && listingData.images.length > 0) {
-                        const imgPaths = listingData.images.map((img: any) => img.image_path || img);
+                        const imgPaths = listingData.images.map((img: any) => parseImageUrl(img.image_path || img)).filter(Boolean) as string[];
                         const galleryOnly = imgPaths.filter((p: string) => p !== heroUrl);
                         setExistingImages(galleryOnly);
                     }

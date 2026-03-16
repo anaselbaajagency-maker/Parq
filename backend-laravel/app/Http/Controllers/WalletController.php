@@ -2,19 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Wallet\WalletRedeemCouponRequest;
+use App\Http\Requests\Wallet\WalletTopupRequest;
+use App\Http\Requests\Wallet\WalletTransactionsRequest;
+use App\Http\Requests\Wallet\WalletUploadProofRequest;
+use App\Http\Resources\TopUpRequestResource;
+use App\Http\Resources\WalletTransactionResource;
+use App\Services\AuditLogService;
 use App\Services\PaymentService;
 use App\Services\TopUpService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class WalletController extends Controller
 {
     public function __construct(
         protected WalletService $walletService,
         protected TopUpService $topUpService,
-        protected PaymentService $paymentService
+        protected PaymentService $paymentService,
+        protected AuditLogService $auditLogService
     ) {}
 
     /**
@@ -38,6 +45,7 @@ class WalletController extends Controller
                 'days_remaining' => $daysRemaining = $this->walletService->getDaysRemaining($user),
                 'low_balance_warning' => $daysRemaining <= 7 && $dailyExpense > 0,
                 'critical_balance_warning' => $daysRemaining <= 3 && $dailyExpense > 0,
+                'has_paused_listings' => $user->listings()->where('status', 'paused')->exists(),
             ],
         ]);
     }
@@ -47,47 +55,25 @@ class WalletController extends Controller
      *
      * GET /api/wallet/transactions
      */
-    public function transactions(Request $request): JsonResponse
+    public function transactions(WalletTransactionsRequest $request): JsonResponse
     {
-        $request->validate([
-            'limit' => 'integer|min:1|max:100',
-            'offset' => 'integer|min:0',
-            'type' => ['string', Rule::in(['bonus', 'topup_manual', 'online_payment', 'deduction', 'coupon', 'admin_credit', 'credit', 'debit'])],
-        ]);
+        $validated = $request->validated();
 
         $user = $request->user();
-        $limit = $request->input('limit', 20);
-        $offset = $request->input('offset', 0);
-        $type = $request->input('type');
+        $limit = (int) ($validated['limit'] ?? 20);
+        $offset = (int) ($validated['offset'] ?? 0);
+        $type = $validated['type'] ?? null;
 
         if ($type) {
             $transactions = $this->walletService->getTransactionsByType($user, $type, $limit);
         } else {
             $transactions = $this->walletService->getTransactionHistory($user, $limit, $offset);
         }
+        $transactions->loadMissing('reference');
 
         return response()->json([
             'success' => true,
-            'data' => $transactions->map(function ($tx) {
-                $receiptUrl = null;
-                if ($tx->reference_type === 'App\Models\TopUpRequest' && $tx->reference && $tx->reference->proof_image) {
-                    $receiptUrl = asset('storage/'.$tx->reference->proof_image);
-                }
-
-                return [
-                    'id' => $tx->id,
-                    'amount' => $tx->amount,
-                    'formatted_amount' => $tx->formatted_amount,
-                    'type' => $tx->type,
-                    'type_label' => $tx->type_label,
-                    'source' => $tx->source,
-                    'source_label' => $tx->source_label,
-                    'description' => $tx->description,
-                    'status' => 'completed',
-                    'created_at' => $tx->created_at->toIso8601String(),
-                    'receipt_url' => $receiptUrl,
-                ];
-            }),
+            'data' => WalletTransactionResource::collection($transactions)->resolve(),
         ]);
     }
 
@@ -109,17 +95,13 @@ class WalletController extends Controller
      *
      * POST /api/wallet/topup
      */
-    public function topup(Request $request): JsonResponse
+    public function topup(WalletTopupRequest $request): JsonResponse
     {
-        $request->validate([
-            'amount' => 'required|integer|min:'.config('wallet.minimum_topup', 50).'|max:'.config('wallet.maximum_topup', 10000),
-            'method' => ['required', 'string', Rule::in(['bank_transfer', 'cmi', 'payzone', 'cashplus'])],
-            'proof_image' => 'nullable|image|max:5120', // 5MB max
-        ]);
+        $validated = $request->validated();
 
         $user = $request->user();
-        $amount = $request->input('amount');
-        $method = $request->input('method');
+        $amount = (int) $validated['amount'];
+        $method = (string) $validated['method'];
 
         try {
             // For bank transfer with proof image, use TopUpService
@@ -130,25 +112,39 @@ class WalletController extends Controller
                     $request->file('proof_image')
                 );
 
+                $this->auditLogService->log(
+                    'wallet.topup.manual_request_created',
+                    $user,
+                    'topup_request',
+                    $topUpRequest->id,
+                    [
+                        'amount' => $amount,
+                        'method' => $method,
+                    ]
+                );
+
+                \Illuminate\Support\Facades\Log::info('Top-up request created', ['id' => $topUpRequest->id, 'user_id' => $user->id]);
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Demande de recharge créée avec succès',
-                    'data' => [
-                        'request_id' => $topUpRequest->id,
-                        'reference' => $topUpRequest->payment_reference,
-                        'status' => $topUpRequest->status,
-                        'bank_details' => [
-                            'bank_name' => config('wallet.bank_transfer.bank_name'),
-                            'account_name' => config('wallet.bank_transfer.account_name'),
-                            'account_number' => config('wallet.bank_transfer.account_number'),
-                            'rib' => config('wallet.bank_transfer.rib'),
-                        ],
-                    ],
+                    'data' => (new TopUpRequestResource($topUpRequest))->resolve(),
                 ], 201);
             }
 
             // For online payments, use PaymentService
             $result = $this->paymentService->initiatePayment($user, $amount, $method);
+
+            $this->auditLogService->log(
+                'wallet.topup.payment_initiated',
+                $user,
+                'wallet',
+                $user->id,
+                [
+                    'amount' => $amount,
+                    'method' => $method,
+                ]
+            );
 
             return response()->json([
                 'success' => true,
@@ -176,12 +172,9 @@ class WalletController extends Controller
      *
      * POST /api/wallet/topup/{id}/proof
      */
-    public function uploadProof(Request $request, int $id): JsonResponse
+    public function uploadProof(WalletUploadProofRequest $request, int $id): JsonResponse
     {
-        $request->validate([
-            'proof_image' => 'required|image|max:5120',
-        ]);
-
+        \Illuminate\Support\Facades\Log::info('Upload proof attempt', ['id' => $id, 'user_id' => $request->user()->id]);
         $user = $request->user();
         $topUpRequest = $user->topUpRequests()->findOrFail($id);
 
@@ -191,12 +184,19 @@ class WalletController extends Controller
                 $request->file('proof_image')
             );
 
+            $this->auditLogService->log(
+                'wallet.topup.proof_uploaded',
+                $user,
+                'topup_request',
+                $updated->id
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Justificatif téléchargé avec succès',
                 'data' => [
-                    'request_id' => $updated->id,
-                    'proof_image' => asset('storage/'.$updated->proof_image),
+                    'id' => $updated->id,
+                    'proof_image' => $updated->proof_image_url,
                 ],
             ]);
         } catch (\RuntimeException $e) {
@@ -216,26 +216,11 @@ class WalletController extends Controller
     public function topupRequests(Request $request): JsonResponse
     {
         $user = $request->user();
-        $requests = $this->topUpService->getUserRequests($user);
+        $requests = $this->topUpService->getUserRequests($user)->loadMissing('user', 'approver');
 
         return response()->json([
             'success' => true,
-            'data' => $requests->map(function ($req) {
-                return [
-                    'id' => $req->id,
-                    'amount' => $req->amount,
-                    'method' => $req->method,
-                    'method_label' => $req->method_label,
-                    'status' => $req->status,
-                    'status_label' => $req->status_label,
-                    'status_color' => $req->status_color,
-                    'reference' => $req->payment_reference,
-                    'proof_image' => $req->proof_image ? asset('storage/'.$req->proof_image) : null,
-                    'admin_notes' => $req->admin_notes,
-                    'created_at' => $req->created_at->toIso8601String(),
-                    'approved_at' => $req->approved_at?->toIso8601String(),
-                ];
-            }),
+            'data' => TopUpRequestResource::collection($requests)->resolve(),
         ]);
     }
 
@@ -251,6 +236,13 @@ class WalletController extends Controller
 
         try {
             $this->topUpService->cancel($topUpRequest, $user);
+
+            $this->auditLogService->log(
+                'wallet.topup.request_cancelled',
+                $user,
+                'topup_request',
+                $topUpRequest->id
+            );
 
             return response()->json([
                 'success' => true,
@@ -270,16 +262,25 @@ class WalletController extends Controller
      *
      * POST /api/wallet/redeem-coupon
      */
-    public function redeemCoupon(Request $request): JsonResponse
+    public function redeemCoupon(WalletRedeemCouponRequest $request): JsonResponse
     {
-        $request->validate([
-            'code' => 'required|string|min:3|max:50',
-        ]);
+        $validated = $request->validated();
 
         $user = $request->user();
 
         try {
-            $transaction = $this->walletService->redeemCoupon($user, $request->input('code'));
+            $transaction = $this->walletService->redeemCoupon($user, $validated['code']);
+
+            $this->auditLogService->log(
+                'wallet.coupon.redeemed',
+                $user,
+                'wallet_transaction',
+                $transaction->id,
+                [
+                    'code' => $validated['code'],
+                    'amount' => $transaction->amount,
+                ]
+            );
 
             return response()->json([
                 'success' => true,
@@ -307,6 +308,7 @@ class WalletController extends Controller
     {
         $user = $request->user();
         $wallet = $this->walletService->getOrCreateWallet($user);
+        $recentTransactions = $this->walletService->getTransactionHistory($user, 5)->loadMissing('reference');
 
         return response()->json([
             'success' => true,
@@ -315,15 +317,7 @@ class WalletController extends Controller
                 'formatted_balance' => $wallet->formatted_balance,
                 'total_credits' => $this->walletService->getTotalCredits($user),
                 'total_spent' => $this->walletService->getTotalDebits($user),
-                'recent_transactions' => $this->walletService->getTransactionHistory($user, 5)->map(function ($tx) {
-                    return [
-                        'id' => $tx->id,
-                        'amount' => $tx->amount,
-                        'type' => $tx->type,
-                        'description' => $tx->description,
-                        'created_at' => $tx->created_at->toIso8601String(),
-                    ];
-                }),
+                'recent_transactions' => WalletTransactionResource::collection($recentTransactions)->resolve(),
             ],
         ]);
     }

@@ -1,7 +1,7 @@
 {
     "Header": {
         "home": "Accueil",
-        "rent": "Louer",
+        "rent": "Location",
         "buy": "Acheter",
         "list_item": "Publier une annonce",
         "create_listing": {
@@ -27,6 +27,10 @@
             "error": "Échec de la création de l'annonce",
             "select_category": "Sélectionner une catégorie",
             "select_city": "Sélectionner une ville",
+            "listings_page": {
+                "verify_email_first": "Veuillez vérifier votre adresse email avant de créer une annonce. Vérifiez vos paramètres.",
+                "zero_balance": "Votre solde est de 0 DH. Veuillez recharger votre portefeuille pour créer une annonce."
+            },
             "placeholder_title": "Ex: Tracteur Caterpillar D6",
             "placeholder_title_ar": "Ex: جرافة كاتربيلر D6",
             "placeholder_price": "Ex: 500",
@@ -200,8 +204,14 @@
         "register_hero_subtitle": "Créez votre compte pour accéder à des opportunités exclusives et gérer vos locations en toute simplicité.",
         "footer_rights": "© 2024 Parq Inc.",
         "privacy_policy": "Confidentialité",
-        "terms_of_service": "Conditions",
-        "agree_terms": "En continuant, vous acceptez nos Conditions d'utilisation et notre Politique de confidentialité."
+        "terms_of_service": "Conditions d'utilisation",
+        "agree_terms": "En continuant, vous acceptez nos Conditions d'utilisation et notre Politique de confidentialité.",
+        "brand_description": "Trouvez, louez ou achetez votre bien immobilier en toute simplicité.",
+        "register_tagline_1": "Rejoignez",
+        "register_tagline_2": "L'aventure",
+        "forgot_tagline_1": "Sécurité",
+        "forgot_tagline_2": "Avant tout",
+        "error": "Une erreur est survenue lors de l'authentification."
     },
     "Listing": {
         "back_to_rent": "Retour aux locations",
@@ -278,6 +288,40 @@
         "fuel_electric": "Électrique"
     },
     "Dashboard": {
+        "common": {
+            "cancel": "Annuler",
+            "loading_profile": "CHARGEMENT DU PROFIL...",
+            "initialization": "INITIALISATION...",
+            "secure_env": "Chargement de l'environnement sécurisé",
+            "session_not_found": "Session non trouvée",
+            "session_reconnect": "Veuillez vous reconnecter.",
+            "back_to_login": "Retour à la connexion",
+            "close": "Fermer",
+            "finish": "Terminer",
+            "deactivate": "Désactiver",
+            "update": "Mettre à jour",
+            "updating": "Mise à jour...",
+            "loading": "Chargement...",
+            "error_loading_dashboard": "Impossible de charger le tableau de bord. Veuillez rafraîchir la page.",
+            "error_loading_listings": "Impossible de charger vos annonces.",
+            "error_deleting_listing": "Erreur lors de la suppression.",
+            "user": "Utilisateur"
+        },
+        "sidebar": {
+            "menu": "Menu",
+            "preferences": "Préférences"
+        },
+        "verification": {
+            "title": "Vérifiez votre adresse email",
+            "desc": "Veuillez confirmer votre adresse email pour sécuriser votre compte et accéder à toutes nos fonctionnalités.",
+            "button": "Vérifier mon compte"
+        },
+        "paused_modal": {
+            "title": "Annonces en pause",
+            "desc": "Votre solde de portefeuille est épuisé, ce qui a entraîné la mise en pause de vos annonces actives. Veuillez recharger votre compte pour continuer à les diffuser.",
+            "later": "Plus tard",
+            "recharge": "Recharger mon solde"
+        },
         "greeting": "Bonjour, {name} !",
         "greeting_subtitle": "Voici ce qui se passe avec votre activité aujourd'hui.",
         "stats": {
@@ -307,6 +351,10 @@
         "manage_listings_desc": "Gérer vos annonces",
         "no_activity": "Aucune activité récente",
         "loading": "Chargement du tableau de bord...",
+        "welcome_bonus": {
+            "title": "Bienvenue sur Parq !",
+            "desc": "Nous avons ajouté un bonus de 100 DH à votre portefeuille pour bien démarrer."
+        },
         "messages_page": {
             "title": "Messages",
             "search": "Rechercher des messages",
@@ -336,14 +384,23 @@
             "delete": "Supprimer",
             "spent": "Dépensé",
             "delete_confirm": "Êtes-vous sûr de vouloir supprimer cette annonce ?",
-            "pause_tooltip": "Vous ne pouvez mettre en pause que les annonces actives"
+            "pause_tooltip": "Vous ne pouvez mettre en pause que les annonces actives",
+            "verify_email_first": "Veuillez vérifier votre adresse email avant d'ajouter une annonce. Vérifiez vos paramètres.",
+            "zero_balance": "Votre solde est de 0 DH. Veuillez recharger votre portefeuille pour créer une annonce."
         },
         "settings_page": {
             "title": "Compte",
             "personal_info": "Informations personnelles",
+            "profile_desc": "Mettez à jour votre photo et vos informations personnelles ici.",
             "login_security": "Connexion et sécurité",
+            "security_desc": "Gérez votre mot de passe et la sécurité de votre compte.",
+            "google_linked": "Lié au compte Google",
+            "google_signed_in": "Connecté avec Google",
+            "google_security_managed": "La sécurité de votre compte est gérée par Google. Visitez les paramètres de votre compte Google pour mettre à jour votre mot de passe.",
             "notifications": "Notifications",
+            "notifications_desc": "Choisissez comment vous souhaitez être notifié.",
             "payments": "Paiements",
+            "payments_desc": "Gérez vos modes de paiement et vos préférences de versement.",
             "update_photo": "Modifier la photo",
             "full_name": "Nom complet",
             "email": "Adresse e-mail",
@@ -374,7 +431,14 @@
             "add": "Ajouter",
             "deactivate": "Désactiver le compte",
             "save": "Enregistrer les modifications",
-            "saving": "Enregistrement..."
+            "saving": "Enregistrement...",
+            "success_message": "Profil mis à jour avec succès !",
+            "error_message": "Une erreur est survenue lors de la mise à jour du profil.",
+            "password_mismatch": "Les mots de passe ne correspondent pas.",
+            "password_change_success": "Mot de passe modifié avec succès !",
+            "password_change_error": "Erreur lors de la modification du mot de passe.",
+            "two_factor_disable_confirm": "Êtes-vous sûr de vouloir désactiver l'authentification à deux facteurs ?",
+            "active_sessions_desc": "Gérez les appareils où vous êtes actuellement connecté."
         }
     },
     "AdminListings": {
@@ -437,6 +501,10 @@
             "est_remaining": "Jours restants estimés",
             "days": "jours"
         },
+        "bank_details": {
+            "rib": "RIB PARQ MARKET",
+            "bank": "Banque"
+        },
         "alerts": {
             "low_title": "Solde faible",
             "critical_title": "Solde critique",
@@ -495,12 +563,10 @@
             "next": "Suivant",
             "page": "Page {page}"
         },
-        "welcome_bonus": {
-            "title": "Bienvenue sur Parq !",
-            "desc": "Nous avons ajouté un bonus de 100 DH à votre portefeuille pour bien démarrer."
-        },
         "loading": "Chargement de votre portefeuille...",
         "processing": "Traitement...",
+        "cancel": "Annuler",
+        "submit": "Envoyer",
         "finish": "Terminer",
         "invoice_coupon_error": "Code promo invalide",
         "coupon_instructions": "Saisissez votre code pour recevoir des crédits DH bonus instantanément sur votre compte.",
