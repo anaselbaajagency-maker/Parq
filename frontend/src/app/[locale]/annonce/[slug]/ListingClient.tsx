@@ -195,74 +195,7 @@ export default function ListingClient({ slug }: ListingClientProps) {
                             </p>
                         </div>
 
-                        {/* Critères (Attributes) Grid */}
-                        <div className={styles.section}>
-                            <div className={styles.sectionTitle}>{t('technical_specs')}</div>
-                            <div className={styles.specsGrid}>
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><CheckCircle2 size={14} /> {t('type')}</span>
-                                    <span className={styles.specValue}>{isRent ? t('rent') : t('buy')}</span>
-                                </div>
-                                {listing.category_name && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Gauge size={14} /> {t('category')}</span>
-                                        <span className={styles.specValue}>{listing.category_name}</span>
-                                    </div>
-                                )}
-                                {listing.brand && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Award size={14} /> {t('brand')}</span>
-                                        <span className={styles.specValue}>{listing.brand}</span>
-                                    </div>
-                                )}
-                                {listing.model && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Award size={14} /> {t('model')}</span>
-                                        <span className={styles.specValue}>{listing.model}</span>
-                                    </div>
-                                )}
-                                {listing.year && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Calendar size={14} /> {t('year')}</span>
-                                        <span className={styles.specValue}>{listing.year}</span>
-                                    </div>
-                                )}
-                                {listing.fuel && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Fuel size={14} /> {t('fuel')}</span>
-                                        <span className={styles.specValue}>{t(`fuel_${listing.fuel}`)}</span>
-                                    </div>
-                                )}
-                                {listing.gearbox && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Cog size={14} /> {t('gearbox')}</span>
-                                        <span className={styles.specValue}>{t(`gearbox_${listing.gearbox}`)}</span>
-                                    </div>
-                                )}
-                                {listing.power && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Gauge size={14} /> {t('power')}</span>
-                                        <span className={styles.specValue}>{listing.power}</span>
-                                    </div>
-                                )}
-                                {listing.seats && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Gauge size={14} /> {t('seats')}</span>
-                                        <span className={styles.specValue}>{listing.seats}</span>
-                                    </div>
-                                )}
-                                {listing.tonnage && (
-                                    <div className={styles.specItem}>
-                                        <span className={styles.specLabel}><Gauge size={14} /> {t('tonnage')}</span>
-                                        <span className={styles.specValue}>{listing.tonnage}</span>
-                                    </div>
-                                )}
-                                <div className={styles.specItem}>
-                                    <span className={styles.specLabel}><ShieldCheck size={14} /> {t('condition')}</span>
-                                    <span className={styles.specValue}>{listing.condition ? t(`condition_${listing.condition}`) : t('condition_verified')}</span>
-                                </div>
-                            </div>
-                        </div>
+
 
                         {/* Features / Equipments */}
                         {(() => {
