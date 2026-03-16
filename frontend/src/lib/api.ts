@@ -1,5 +1,97 @@
 import { Listing, PaginatedResponse, Category, City, Settings, DashboardStats, DashboardActivity, PerformanceData } from '@/types/listing';
 import { WalletBalance, Transaction, TopUpRequest } from '@/types/wallet';
+import { getAuthToken } from './auth-token';
+import { captureClientError, createRequestId } from './monitoring';
+import type { User as AuthStoreUser } from './auth-store';
+
+type QueryPrimitive = string | number | boolean;
+type QueryParams = Record<string, QueryPrimitive | null | undefined>;
+
+export interface ApiUser {
+    id: number | string;
+    full_name: string;
+    email?: string;
+    role?: string;
+    name?: string | null;
+    avatar?: string;
+    phone?: string;
+    created_at?: string;
+}
+
+export interface AuthPayload {
+    email: string;
+    password: string;
+    client_type?: 'web' | 'mobile';
+    device_name?: string;
+}
+
+interface RegisterPayloadBase {
+    full_name: string;
+    email: string;
+    role: string;
+    avatar?: string;
+    phone?: string;
+    client_type?: 'web' | 'mobile';
+    device_name?: string;
+}
+
+type EmailRegisterPayload = RegisterPayloadBase & {
+    password: string;
+    google_id?: never;
+};
+
+type GoogleRegisterPayload = RegisterPayloadBase & {
+    google_id: string;
+    password?: null;
+};
+
+export type RegisterPayload = EmailRegisterPayload | GoogleRegisterPayload;
+
+export interface AuthResponse {
+    user: AuthStoreUser;
+    token: string;
+}
+
+export interface AdminStatsResponse {
+    total_users: number;
+    total_listings: number;
+    pending_approvals: number;
+    total_revenue: number;
+}
+
+export interface GenericApiResponse {
+    success?: boolean;
+    message?: string;
+    [key: string]: unknown;
+}
+
+export interface UserProfileResponse {
+    user: ApiUser;
+    listings: Listing[];
+}
+
+export interface AdminUsersQuery {
+    search?: string;
+    role?: string;
+    status?: string;
+    page?: number;
+    [key: string]: QueryPrimitive | null | undefined;
+}
+
+export interface AdminUserRecord {
+    id: string | number;
+    full_name: string;
+    email: string;
+    role: string;
+    created_at: string;
+    listings_count?: number;
+}
+
+export interface AdminUserUpdatePayload {
+    role?: string;
+    full_name?: string;
+    email?: string;
+}
 
 // Defining basic Message types here for API use
 export interface Message {
@@ -10,12 +102,12 @@ export interface Message {
     content: string;
     read_at?: string;
     created_at: string;
-    sender?: any;
-    receiver?: any;
+    sender?: ApiUser;
+    receiver?: ApiUser;
 }
 
 export interface Conversation {
-    user: any; // The other user
+    user: ApiUser; // The other user
     last_message: Message;
     unread_count: number;
 }
@@ -24,40 +116,194 @@ export interface Conversation {
 export type { Listing, Category, City, Settings, DashboardStats, DashboardActivity, PerformanceData };
 export type { Listing as ApiListing }; // Alias used in some components
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+export interface AppNotification {
+    id: string;
+    type: string;
+    notifiable_type: string;
+    notifiable_id: number;
+    data: any;
+    read_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface NotificationResponse {
+    data: AppNotification[];
+    unread_count: number;
+    total: number;
+}
+
+const API_URL = process.env.NODE_ENV === 'development' ? '/api-backend' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api');
 export const API_BASE_URL = API_URL;
+
+if (typeof window !== 'undefined') {
+    console.log('[API] Using URL:', API_URL);
+}
 
 export async function fetchAdminStats() {
     const token = getAuthToken();
-    return fetchAPI<any>('admin/stats', {
+    return fetchAPI<AdminStatsResponse>('admin/stats', {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
 }
 
+function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
+    if (!headers) {
+        return {};
+    }
+
+    if (headers instanceof Headers) {
+        const normalized: Record<string, string> = {};
+        headers.forEach((value, key) => {
+            normalized[key] = value;
+        });
+
+        return normalized;
+    }
+
+    if (Array.isArray(headers)) {
+        return Object.fromEntries(headers);
+    }
+
+    return headers as Record<string, string>;
+}
+
+/**
+ * Robustly parses backend image URLs to ensure frontend compatibility.
+ * Replaces localhost/127.0.0.1 with the correct NEXT_PUBLIC_API_URL domain if needed.
+ */
+export function parseImageUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+
+    // Fast check for relative paths starting with /storage
+    if (url.startsWith('/storage/')) {
+        const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+        // If we are in dev with /api-backend proxy, we can try to use it for storage too if configured,
+        // but for now let's just use the absolute backend URL.
+        const backendBase = process.env.NEXT_PUBLIC_API_URL 
+            ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '') 
+            : 'http://localhost:8000';
+        return `${backendBase}${url}`;
+    }
+
+    try {
+        const parsed = new URL(url);
+        // If it's a local/backend URL and we are in dev mode,
+        // we might want to ensure it uses the correct port or proxy.
+        if (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') {
+            const apiEndpoint = process.env.NEXT_PUBLIC_API_URL || '';
+            if (apiEndpoint.includes('localhost:') || apiEndpoint.includes('127.0.0.1:')) {
+                const targetPort = new URL(apiEndpoint).port;
+                if (targetPort && parsed.port !== targetPort) {
+                    parsed.port = targetPort;
+                    return parsed.toString();
+                }
+            }
+        }
+        return url;
+    } catch {
+        // Not a full URL, might be relative
+        if (!url.startsWith('http')) {
+            const base = API_URL.replace('/api', '');
+            return `${base}/${url.replace(/^\//, '')}`;
+        }
+        return url;
+    }
+}
+
+// extraneous code removed
+
+function toQueryString(params?: QueryParams): string {
+    if (!params) {
+        return '';
+    }
+
+    const query = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+            return;
+        }
+
+        query.set(key, String(value));
+    });
+
+    return query.toString();
+}
+
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const requestId = createRequestId();
     const headers: Record<string, string> = {
         'Accept': 'application/json',
-        ...((options.headers as any) || {}),
+        'X-Request-ID': requestId,
+        ...normalizeHeaders(options.headers),
     };
+
+    // Attach bearer token automatically if available and not already set.
+    const hasAuth = !!(headers['Authorization'] || headers['authorization']);
+    if (!hasAuth) {
+        const token = getAuthToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+            // console.log(`[API] Attached Bearer token for ${endpoint}`);
+        } else {
+            // console.warn(`[API] No token found for authenticated request to ${endpoint}`);
+        }
+    }
 
     // Automatically add Content-Type if body is not FormData
     if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
     }
 
-    const res = await fetch(`${API_URL}/${endpoint}`, { ...options, headers });
+    const finalUrl = `${API_URL}/${endpoint}`;
+    let res: Response;
+    try {
+        if (typeof window !== 'undefined') {
+            const authHeader = headers['Authorization'] || headers['authorization'];
+            console.log(`[API] ${options.method || 'GET'} ${finalUrl}`, {
+                hasAuth: !!authHeader,
+                authPrefix: authHeader ? authHeader.substring(0, 15) + '...' : 'NONE',
+                requestId
+            });
+        }
+        res = await fetch(finalUrl, { ...options, headers });
+    } catch (error) {
+        if (typeof window !== 'undefined') {
+            console.error(`[API] Network Error for ${finalUrl}:`, error);
+        }
+        void captureClientError(error, {
+            scope: 'api.network',
+            endpoint,
+            request_id: requestId,
+        });
+        throw error;
+    }
+
+    const responseRequestId = res.headers.get('X-Request-ID') || requestId;
 
     if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            throw new Error('ACCESS_DENIED');
+        }
+
         const errorBody = await res.text();
         let errorMessage = `API Error: ${res.status} - ${errorBody}`;
         try {
-            const errorJson = JSON.parse(errorBody);
+            const errorJson = JSON.parse(errorBody) as { message?: string };
             if (errorJson.message) {
                 errorMessage = `API Error ${res.status}: ${errorJson.message}`;
             }
-        } catch (e) {
+        } catch {
             // Keep original parsing if not valid JSON
         }
+
+        void captureClientError(new Error(errorMessage), {
+            scope: 'api.response',
+            endpoint,
+            status: res.status,
+            request_id: responseRequestId,
+        });
         throw new Error(errorMessage);
     }
 
@@ -65,41 +311,29 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
 }
 
 /**
- * Get the auth token from localStorage if available (consistent with auth-store persistence)
- */
-const getAuthToken = () => {
-    if (typeof window === 'undefined') return null;
-    const storage = localStorage.getItem('parq-auth');
-    if (!storage) return null;
-    try {
-        const { state } = JSON.parse(storage);
-        return state?.token || null;
-    } catch {
-        return null;
-    }
-};
-
-/**
  * Authenticated fetch wrapper
  */
 export async function authFetch(url: string, options: RequestInit = {}) {
     const token = getAuthToken();
+    const requestId = createRequestId();
     const headers = {
-        ...options.headers,
+        'Accept': 'application/json',
+        ...(options.headers || {}),
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'X-Request-ID': requestId,
     };
     return fetch(url, { ...options, headers });
 }
 
-export const apiLogin = async (data: any) => {
-    return fetchAPI<{ user: any; token: string }>('login', {
+export const apiLogin = async (data: AuthPayload) => {
+    return fetchAPI<AuthResponse>('login', {
         method: 'POST',
         body: JSON.stringify(data),
     });
 };
 
-export const apiRegister = async (data: any) => {
-    return fetchAPI<{ user: any; token: string }>('register', {
+export const apiRegister = async (data: RegisterPayload) => {
+    return fetchAPI<AuthResponse>('register', {
         method: 'POST',
         body: JSON.stringify(data),
     });
@@ -107,10 +341,10 @@ export const apiRegister = async (data: any) => {
 
 export const api = {
     listings: {
-        getAll: async (params?: Record<string, string | number | boolean>) => {
+        getAll: async (params?: QueryParams) => {
             const token = getAuthToken();
             const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
-            const queryString = new URLSearchParams(params as Record<string, string>).toString();
+            const queryString = toQueryString(params);
             return fetchAPI<PaginatedResponse<Listing>>(`listings?${queryString}`, {
                 cache: 'no-store',
                 headers
@@ -190,34 +424,45 @@ export const api = {
     wallet: {
         getBalance: async () => {
             const token = getAuthToken();
-            return fetchAPI<WalletBalance>('wallet/balance', {
+            const res = await fetchAPI<{ data: WalletBalance }>('wallet/balance', {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 cache: 'no-store'
             });
+            return res.data;
         },
         getTransactions: async (limit: number = 20, offset: number = 0, type?: string) => {
             const token = getAuthToken();
             let url = `wallet/transactions?limit=${limit}&offset=${offset}`;
             if (type) url += `&type=${type}`;
 
-            return fetchAPI<Transaction[]>(url, {
+            const res = await fetchAPI<{ data: Transaction[] }>(url, {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 cache: 'no-store'
             });
+            return res.data;
         },
         createTopUp: async (data: { method: string, amount: number }) => {
             const token = getAuthToken();
-            return fetchAPI<TopUpRequest>('wallet/topup', {
+            const res = await fetchAPI<{ data: TopUpRequest }>('wallet/topup', {
                 method: 'POST',
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 body: JSON.stringify(data),
             });
+            return res.data;
+        },
+        getTopUpRequests: async () => {
+            const token = getAuthToken();
+            const res = await fetchAPI<{ data: TopUpRequest[] }>('wallet/topup-requests', {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                cache: 'no-store'
+            });
+            return res.data;
         },
         uploadProof: async (requestId: number, file: File) => {
             const token = getAuthToken();
             const formData = new FormData();
-            formData.append('proof', file);
-            return fetchAPI<any>(`wallet/topup/${requestId}/proof`, {
+            formData.append('proof_image', file);
+            return fetchAPI<GenericApiResponse>(`wallet/topup/${requestId}/proof`, {
                 method: 'POST',
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 body: formData,
@@ -230,12 +475,37 @@ export const api = {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 body: JSON.stringify({ code }),
             });
+        },
+        getPaymentMethods: async () => {
+            const token = getAuthToken();
+            const res = await fetchAPI<{ data: Array<{ code: string; name: string; name_ar?: string; description: string; icon: string; requires_proof: boolean; is_online: boolean; config?: Record<string, any> }> }>('wallet/payment-methods', {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                cache: 'no-store'
+            });
+            return res.data;
+        }
+    },
+    auth: {
+        sendVerificationCode: async () => {
+            const token = getAuthToken();
+            return fetchAPI<GenericApiResponse>('email/verify/send', {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            });
+        },
+        verifyEmail: async (code: string) => {
+            const token = getAuthToken();
+            return fetchAPI<GenericApiResponse>('email/verify/check', {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: JSON.stringify({ code }),
+            });
         }
     }
 };
 
 export const apiGoogleLogin = async (data: { email: string; google_id: string; full_name: string; avatar: string }) => {
-    return fetchAPI<{ user: any; token: string }>('auth/google-login', {
+    return fetchAPI<AuthResponse>('auth/google-login', {
         method: 'POST',
         body: JSON.stringify(data),
     });
@@ -245,7 +515,7 @@ export const apiGoogleLogin = async (data: { email: string; google_id: string; f
 // Compatibility Layer / Top-level functions
 // ==========================================================
 
-export async function fetchCategories(typeOrParams?: string | any, activeOnly?: boolean) {
+export async function fetchCategories(typeOrParams?: string, activeOnly?: boolean) {
     // Build query parameters
     const params = new URLSearchParams();
 
@@ -282,6 +552,7 @@ export async function updateSettings(data: Settings) {
 }
 
 export async function fetchDashboardStats(userId?: number | string) {
+    void userId;
     // userId param is legacy/optional now as backend uses auth token
     const token = getAuthToken();
     return fetchAPI<DashboardStats>('dashboard/stats', {
@@ -290,6 +561,7 @@ export async function fetchDashboardStats(userId?: number | string) {
 }
 
 export async function fetchDashboardActivity(userId?: number | string) {
+    void userId;
     const token = getAuthToken();
     return fetchAPI<DashboardActivity[]>('dashboard/activity', {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -297,6 +569,7 @@ export async function fetchDashboardActivity(userId?: number | string) {
 }
 
 export async function fetchDashboardPerformance(userId?: number | string) {
+    void userId;
     const token = getAuthToken();
     return fetchAPI<PerformanceData>('dashboard/performance', {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -310,26 +583,27 @@ export async function fetchUserListings(userId?: number | string) {
 
 export async function fetchUserProfile(userId: number | string) {
     const token = getAuthToken();
-    return fetchAPI<{ user: any, listings: Listing[] }>(`users/${userId}/profile`, {
+    return fetchAPI<UserProfileResponse>(`users/${userId}/profile`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         cache: 'no-store'
     });
 }
 
 export async function fetchCities(activeOnly?: boolean) {
-    const res = await fetchAPI<PaginatedResponse<City> | City[]>('cities');
+    const endpoint = activeOnly ? 'cities?active=1' : 'cities';
+    const res = await fetchAPI<PaginatedResponse<City> | City[]>(endpoint);
     return Array.isArray(res) ? res : (res.data || []);
 }
 
 export async function recordListingView(idOrSlug: string | number) {
     try {
         return fetchAPI(`listings/${idOrSlug}/view`, { method: 'POST' });
-    } catch (e) {
+    } catch {
         return null;
     }
 }
 
-export async function fetchListings(params?: any) {
+export async function fetchListings(params?: QueryParams) {
     const response = await api.listings.getAll(params);
     return response.data;
 }
@@ -371,15 +645,15 @@ export async function fetchAdminListings(params?: { search?: string; status?: st
     const queryString = queryParams.toString();
     if (queryString) url += `?${queryString}`;
 
-    const response = await fetchAPI<any>(url, {
+    const response = await fetchAPI<PaginatedResponse<Listing> | Listing[]>(url, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
-    return response.data || response;
+    return Array.isArray(response) ? response : (response.data || []);
 }
 
 export async function approveListing(id: string | number) {
     const token = getAuthToken();
-    return fetchAPI<any>(`admin/listings/${id}/approve`, {
+    return fetchAPI<GenericApiResponse>(`admin/listings/${id}/approve`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
@@ -387,17 +661,34 @@ export async function approveListing(id: string | number) {
 
 export async function rejectListing(id: string | number, reason: string) {
     const token = getAuthToken();
-    return fetchAPI<any>(`admin/listings/${id}/reject`, {
+    return fetchAPI<GenericApiResponse>(`admin/listings/${id}/reject`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: JSON.stringify({ reason }),
     });
 }
 
+export async function toggleFeaturedListing(id: string | number) {
+    const token = getAuthToken();
+    return fetchAPI<{ message: string; is_featured: boolean }>(`admin/listings/${id}/toggle-featured`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+}
+
+export async function bulkDeleteListings(ids: (number | string)[]) {
+    const token = getAuthToken();
+    return fetchAPI<GenericApiResponse>('admin/listings/bulk-delete', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: JSON.stringify({ ids }),
+    });
+}
+
 
 export async function hideListing(id: string | number) {
     const token = getAuthToken();
-    return fetchAPI<any>(`listings/${id}/pause`, {
+    return fetchAPI<GenericApiResponse>(`listings/${id}/pause`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
@@ -459,7 +750,7 @@ export async function deleteCategory(id: string | number) {
 }
 
 export async function updateHomepageCategories(categoryIds: string[]) {
-    return fetchAPI<any>('admin/categories/bulk-homepage', {
+    return fetchAPI<GenericApiResponse>('admin/categories/bulk-homepage', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ ids: categoryIds }),
@@ -469,17 +760,17 @@ export async function updateHomepageCategories(categoryIds: string[]) {
 
 // User Management
 // User Management
-export async function fetchAdminUsers(params?: any) {
+export async function fetchAdminUsers(params?: AdminUsersQuery) {
     const token = getAuthToken();
-    const query = new URLSearchParams(params).toString();
-    return fetchAPI<PaginatedResponse<any>>(`admin/users?${query}`, {
+    const query = toQueryString(params);
+    return fetchAPI<PaginatedResponse<AdminUserRecord>>(`admin/users?${query}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
 }
 
-export async function updateAdminUser(id: number | string, data: any) {
+export async function updateAdminUser(id: number | string, data: AdminUserUpdatePayload) {
     const token = getAuthToken();
-    return fetchAPI<any>(`admin/users/${id}`, {
+    return fetchAPI<GenericApiResponse>(`admin/users/${id}`, {
         method: 'PUT',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: JSON.stringify(data),
@@ -491,6 +782,33 @@ export async function deleteAdminUser(id: number | string) {
     return fetchAPI<void>(`admin/users/${id}`, {
         method: 'DELETE',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+}
+
+export async function bulkDeleteUsers(ids: (number | string)[]) {
+    const token = getAuthToken();
+    return fetchAPI<GenericApiResponse>('admin/users/bulk-delete', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: JSON.stringify({ ids }),
+    });
+}
+
+export async function bulkDeleteCities(ids: (number | string)[]) {
+    const token = getAuthToken();
+    return fetchAPI<GenericApiResponse>('admin/cities/bulk-delete', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: JSON.stringify({ ids }),
+    });
+}
+
+export async function bulkDeleteCategories(ids: (number | string)[]) {
+    const token = getAuthToken();
+    return fetchAPI<GenericApiResponse>('admin/categories/bulk-delete', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: JSON.stringify({ ids }),
     });
 }
 
@@ -538,10 +856,113 @@ export const apiMessages = {
     }
 };
 
+export const apiUser = {
+    updateProfile: async (data: { full_name?: string; phone?: string; city_id?: string | number | null; bio?: string | null }): Promise<{ message: string; user: AuthStoreUser }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string; user: AuthStoreUser }>('profile', {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(data)
+        });
+    },
+    updateAvatar: async (file: File): Promise<{ message: string; avatar: string; user: AuthStoreUser }> => {
+        const token = getAuthToken();
+        const formData = new FormData();
+        formData.append('avatar', file);
+        return fetchAPI<{ message: string; avatar: string; user: AuthStoreUser }>('profile/avatar', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+    },
+    changePassword: async (data: any): Promise<{ message: string }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string }>('profile/change-password', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(data)
+        });
+    },
+    get2FAStatus: async (): Promise<{ enabled: boolean; confirmed: boolean }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ enabled: boolean; confirmed: boolean }>('auth/2fa/status', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+    enable2FA: async (): Promise<{ secret: string; qr_code_svg: string; qr_code_url: string }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ secret: string; qr_code_svg: string; qr_code_url: string }>('auth/2fa/enable', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+    confirm2FA: async (code: string): Promise<{ message: string; recovery_codes: string[] }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string; recovery_codes: string[] }>('auth/2fa/confirm', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ code })
+        });
+    },
+    disable2FA: async (): Promise<{ message: string }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string }>('auth/2fa/disable', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+    getSessions: async (): Promise<{ sessions: any[] }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ sessions: any[] }>('profile/sessions', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+    revokeSession: async (id: number): Promise<{ message: string }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string }>(`profile/sessions/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+    revokeOtherSessions: async (): Promise<{ message: string }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string }>('profile/sessions/revoke-others', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    }
+};
+
+export const apiNotifications = {
+    get: async (all = false): Promise<NotificationResponse> => {
+        const token = getAuthToken();
+        return fetchAPI<NotificationResponse>(`notifications${all ? '?all=true' : ''}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+    markAsRead: async (id: string): Promise<{ message: string }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string }>(`notifications/${id}/read`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+    markAllAsRead: async (): Promise<{ message: string }> => {
+        const token = getAuthToken();
+        return fetchAPI<{ message: string }>('notifications/read-all', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    }
+};
+
 /**
  * Helper to get localized name from an object (City, Category, etc.)
  */
-export function getLocalizedName(item: any, locale: string) {
+export function getLocalizedName(
+    item: { name?: string; name_ar?: string; name_fr?: string } | null | undefined,
+    locale: string
+) {
     if (!item) return '';
     if (locale === 'ar' && item.name_ar) return item.name_ar;
     if (locale === 'fr' && item.name_fr) return item.name_fr;

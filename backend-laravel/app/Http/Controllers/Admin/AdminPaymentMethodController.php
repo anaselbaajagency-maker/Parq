@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminPaymentMethodStoreRequest;
+use App\Http\Requests\Admin\AdminPaymentMethodUpdateRequest;
 use App\Models\PaymentMethod;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class AdminPaymentMethodController extends Controller
 {
@@ -25,20 +26,11 @@ class AdminPaymentMethodController extends Controller
     /**
      * Update a payment method.
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(AdminPaymentMethodUpdateRequest $request, int $id): JsonResponse
     {
         $method = PaymentMethod::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'name_ar' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'description_ar' => 'nullable|string',
-            'is_active' => 'boolean',
-            'sort_order' => 'integer',
-            'config' => 'nullable|array',
-            'icon' => 'nullable|string|max:50',
-        ]);
+        $validated = $request->validated();
 
         $method->update($validated);
 
@@ -62,6 +54,53 @@ class AdminPaymentMethodController extends Controller
             'success' => true,
             'message' => 'Statut mis à jour',
             'is_active' => $method->is_active,
+        ]);
+    }
+
+    /**
+     * Create a new payment method.
+     */
+    public function store(AdminPaymentMethodStoreRequest $request): JsonResponse
+    {
+        $method = PaymentMethod::create($request->validated());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Méthode de paiement créée',
+            'data' => $method->makeVisible('config'),
+        ], 201);
+    }
+
+    /**
+     * Delete a payment method.
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        $method = PaymentMethod::findOrFail($id);
+        $method->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Méthode de paiement supprimée',
+        ]);
+    }
+
+    /**
+     * Bulk delete payment methods.
+     */
+    public function bulkDestroy(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:payment_methods,id',
+        ]);
+
+        $ids = $request->input('ids');
+        PaymentMethod::whereIn('id', $ids)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => count($ids) . ' méthodes de paiement supprimées.',
         ]);
     }
 }

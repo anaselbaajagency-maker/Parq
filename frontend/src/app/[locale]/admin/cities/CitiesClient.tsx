@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { fetchCities, createCity, updateCity, deleteCity, City } from '@/lib/api';
-import { Plus, Edit2, Trash2, X, Loader2, Save, Search, MapPin, Globe, CheckCircle2 } from 'lucide-react';
+import { fetchCities, createCity, updateCity, deleteCity, bulkDeleteCities, City } from '@/lib/api';
+import { Plus, Edit2, Trash2, X, Loader2, Save, Search, MapPin, Globe, CheckCircle2, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { useAlert } from '@/context/AlertContext';
 import styles from './cities.module.css';
 
@@ -14,7 +14,13 @@ export default function CitiesClient() {
     const [formData, setFormData] = useState<Partial<City>>({});
     const [processing, setSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedRegion, setSelectedRegion] = useState('');
+    const [error, setError] = useState<string | null>(null);
     const { showAlert } = useAlert();
+
+    // Multi-select State
+    const [selectedIds, setSelectedIds] = useState<Set<number | string>>(new Set());
+    const [bulkActionProcessing, setBulkActionProcessing] = useState(false);
 
     useEffect(() => {
         loadCities();
@@ -22,12 +28,19 @@ export default function CitiesClient() {
 
     const loadCities = async () => {
         setLoading(true);
+        setError(null);
         try {
             const data = await fetchCities();
             setCities(data);
-        } catch (error) {
-            console.error('Failed to load cities', error);
-            showAlert('error', 'Impossible de charger les villes. Veuillez réessayer.', 'Erreur');
+        } catch (error: any) {
+            const errorMessage = error?.message || (typeof error === 'string' ? error : '');
+            if (errorMessage.includes('ACCESS_DENIED')) {
+                setError('ACCESS_DENIED');
+            } else {
+                console.error('Failed to load cities', error);
+                setError('FETCH_ERROR');
+                showAlert('error', 'Impossible de charger les villes. Veuillez réessayer.', 'Erreur');
+            }
         } finally {
             setLoading(false);
         }
@@ -40,11 +53,68 @@ export default function CitiesClient() {
     }), [cities]);
 
     const filteredCities = useMemo(() => {
-        return cities.filter(city =>
-            city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (city.region && city.region.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-    }, [cities, searchQuery]);
+        return cities.filter(city => {
+            const matchesSearch = city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (city.region && city.region.toLowerCase().includes(searchQuery.toLowerCase()));
+            const matchesRegion = !selectedRegion || city.region === selectedRegion;
+            return matchesSearch && matchesRegion;
+        });
+    }, [cities, searchQuery, selectedRegion]);
+
+    const regionsList = [
+        "Tanger-Tétouan-Al Hoceïma",
+        "L'Oriental",
+        "Fès-Meknès",
+        "Rabat-Salé-Kénitra",
+        "Béni Mellal-Khénifra",
+        "Casablanca-Settat",
+        "Marrakech-Safi",
+        "Drâa-Tafilalet",
+        "Souss-Massa",
+        "Guelmim-Oued Noun",
+        "Laâyoune-Sakia El Hamra",
+        "Dakhla-Oued Ed-Dahab"
+    ];
+
+    const isAllSelected = filteredCities.length > 0 && Array.from(selectedIds).length === filteredCities.length;
+
+    const toggleSelectAll = () => {
+        if (isAllSelected) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredCities.map(c => c.id)));
+        }
+    };
+
+    const toggleSelect = (id: number | string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    async function handleBulkDelete() {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer ${selectedIds.size} villes ?`)) return;
+
+        setBulkActionProcessing(true);
+        try {
+            const idsArray = Array.from(selectedIds);
+            await bulkDeleteCities(idsArray);
+            setCities(prev => prev.filter(c => !selectedIds.has(c.id)));
+            setSelectedIds(new Set());
+            showAlert('success', `${idsArray.length} villes supprimées avec succès.`, 'Succès');
+        } catch (error) {
+            console.error('Bulk delete error:', error);
+            showAlert('error', 'Une erreur est survenue lors de la suppression en masse', 'Erreur');
+        } finally {
+            setBulkActionProcessing(false);
+        }
+    }
 
     const handleCreate = () => {
         setEditingCity(null);
@@ -136,17 +206,73 @@ export default function CitiesClient() {
 
     if (loading) return <div className={styles.loadingState}><Loader2 className={styles.spinner} size={40} /></div>;
 
+    if (error === 'ACCESS_DENIED') {
+        return (
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className={styles.primaryBtn}
+                        style={{ width: 'auto' }}
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger les villes.</p>
+                    <button onClick={loadCities} className={styles.primaryBtn} style={{ width: 'auto', margin: '0 auto' }}>Réessayer</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.container}>
             <header className={styles.header}>
                 <div>
                     <h1 className={styles.title}>Gestion des Villes</h1>
-                    <p className={styles.subtitle}>Gérez les zones de couverture (Villes et Régions)</p>
+                    <p className={styles.subtitle}>Configurez les zones géographiques disponibles</p>
                 </div>
-                <button onClick={handleCreate} className={styles.primaryBtn}>
-                    <Plus size={20} />
-                    Ajouter une ville
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        className={`${styles.selectAllBtn} ${isAllSelected ? styles.selected : ''}`}
+                        onClick={toggleSelectAll}
+                        title={isAllSelected ? "Désélectionner tout" : "Tout sélectionner"}
+                    >
+                        {isAllSelected ? <CheckCircle2 size={18} /> : <div className={styles.checkboxPlaceholder}></div>}
+                        <span>{isAllSelected ? "Tout désélectionner" : "Tout sélectionner"}</span>
+                    </button>
+
+                    {selectedIds.size > 0 && (
+                        <button
+                            className={styles.headerDeleteBtn}
+                            onClick={handleBulkDelete}
+                            disabled={bulkActionProcessing}
+                        >
+                            {bulkActionProcessing ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                            <span>Supprimer ({selectedIds.size})</span>
+                        </button>
+                    )}
+                    <button onClick={handleCreate} className={styles.primaryBtn}>
+                        <Plus size={20} />
+                        Ajouter une ville
+                    </button>
+                </div>
             </header>
 
             {/* Stats Grid */}
@@ -182,15 +308,28 @@ export default function CitiesClient() {
 
             {/* Controls */}
             <div className={styles.controls}>
-                <div className={styles.searchWrapper}>
-                    <Search className={styles.searchIcon} size={18} />
-                    <input
-                        className={styles.searchInput}
-                        type="text"
-                        placeholder="Rechercher une ville ou région..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                <div className={styles.controlsRow}>
+                    <div className={styles.searchWrapper}>
+                        <Search className={styles.searchIcon} size={18} />
+                        <input
+                            className={styles.searchInput}
+                            type="text"
+                            placeholder="Rechercher une ville ou région..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    
+                    <select 
+                        className={styles.regionSelect}
+                        value={selectedRegion}
+                        onChange={(e) => setSelectedRegion(e.target.value)}
+                    >
+                        <option value="">Toutes les régions</option>
+                        {regionsList.map(region => (
+                            <option key={region} value={region}>{region}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
@@ -199,6 +338,7 @@ export default function CitiesClient() {
                 <table className={styles.table}>
                     <thead>
                         <tr>
+                            <th style={{ width: '40px' }}></th>
                             <th>Nom</th>
                             <th>Nom (FR)</th>
                             <th>Nom (AR)</th>
@@ -210,7 +350,19 @@ export default function CitiesClient() {
                     </thead>
                     <tbody>
                         {filteredCities.map((city) => (
-                            <tr key={city.id}>
+                            <tr 
+                                key={city.id} 
+                                className={selectedIds.has(city.id) ? styles.selectedRow : ''}
+                                onClick={() => toggleSelect(city.id)}
+                            >
+                                <td>
+                                    <div 
+                                        className={`${styles.customCheckbox} ${selectedIds.has(city.id) ? styles.checked : ''}`}
+                                        onClick={(e) => { e.stopPropagation(); toggleSelect(city.id); }}
+                                    >
+                                        {selectedIds.has(city.id) && <CheckCircle2 size={14} />}
+                                    </div>
+                                </td>
                                 <td className={styles.nameCell}>{city.name}</td>
                                 <td>{city.name_fr || <span className="text-gray-400">-</span>}</td>
                                 <td>{city.name_ar || <span className="text-gray-400">-</span>}</td>
@@ -341,6 +493,34 @@ export default function CitiesClient() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Floating Bulk Actions Bar */}
+            {selectedIds.size > 0 && (
+                <div className={styles.bulkActionsBar}>
+                    <div className={styles.bulkActionsContainer}>
+                        <div className={styles.bulkActionsInfo}>
+                            <span className={styles.selectionCount}>{selectedIds.size}</span>
+                            <span className={styles.selectionLabel}>sélectionné(s)</span>
+                        </div>
+                        <div className={styles.bulkActionsButtons}>
+                            <button
+                                className={styles.bulkDeleteBtn}
+                                onClick={handleBulkDelete}
+                                disabled={bulkActionProcessing}
+                            >
+                                {bulkActionProcessing ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                                <span>Supprimer la sélection</span>
+                            </button>
+                            <button
+                                className={styles.bulkCancelBtn}
+                                onClick={() => setSelectedIds(new Set())}
+                            >
+                                Annuler
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

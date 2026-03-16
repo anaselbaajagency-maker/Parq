@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../../../navigation';
 import { useAuthStore } from '@/lib/auth-store';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '../../../../navigation';
 import {
     Search, Trash2, Eye, Shield, Loader2, Filter,
-    CheckCircle2, XCircle, AlertCircle, RefreshCw, MoreVertical,
-    Clock, MapPin, TrendingUp, TrendingDown, BarChart3, Package, Users
+    CheckCircle2, XCircle, AlertCircle, RefreshCw, MoreVertical, AlertTriangle,
+    Clock, MapPin, TrendingUp, TrendingDown, BarChart3, Package, Users, ShieldAlert,
+    ChevronDown, Check, Star, EyeOff
 } from 'lucide-react';
 import {
     fetchAdminListings,
@@ -16,9 +17,11 @@ import {
     approveListing,
     rejectListing,
     hideListing,
+    bulkDeleteListings,
     Listing,
     fetchCategories,
     fetchCities,
+    toggleFeaturedListing,
     Category,
     City
 } from '@/lib/api';
@@ -118,11 +121,11 @@ const ActionMenu = ({ listing, onApprove, onReject, onHide, onUnhide, onDelete, 
         </div>
     );
 };
-// Abort this specific replace to fix imports first.
 
 
 export default function AdminListingsPage() {
     const { user: currentUser } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
     const router = useRouter();
     const locale = useLocale();
     const t = useTranslations('AdminListings');
@@ -130,6 +133,10 @@ export default function AdminListingsPage() {
     const [listings, setListings] = useState<AdminListing[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [cities, setCities] = useState<City[]>([]);
+
+    // Multi-select State
+    const [selectedIds, setSelectedIds] = useState<Set<number | string>>(new Set());
+    const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
     // Filter States
     const [searchQuery, setSearchQuery] = useState('');
@@ -140,6 +147,7 @@ export default function AdminListingsPage() {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [visibleCount, setVisibleCount] = useState(20);
+    const [error, setError] = useState<string | null>(null);
 
     // Toast State
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -176,15 +184,22 @@ export default function AdminListingsPage() {
     }), [listings]);
 
     useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
         if (!currentUser || currentUser.role !== 'ADMIN') {
-            router.push('/dashboard');
+            router.replace('/tableau-de-bord');
             return;
         }
         loadData();
-    }, [currentUser, router]);
+    }, [isMounted, currentUser, router]);
 
     async function loadData() {
         setLoading(true);
+        setError(null);
         try {
             const [listingsData, categoriesData, citiesData] = await Promise.all([
                 fetchAdminListings(),
@@ -194,8 +209,14 @@ export default function AdminListingsPage() {
             setListings(listingsData);
             setCategories(categoriesData);
             setCities(citiesData);
-        } catch (error) {
-            console.error('Failed to load admin data:', error);
+        } catch (error: any) {
+            const errorMessage = error?.message || (typeof error === 'string' ? error : '');
+            if (errorMessage.includes('ACCESS_DENIED')) {
+                setError('ACCESS_DENIED');
+            } else {
+                console.error('Failed to load admin data:', error);
+                setError('FETCH_ERROR');
+            }
         } finally {
             setLoading(false);
         }
@@ -208,9 +229,11 @@ export default function AdminListingsPage() {
             await deleteListing(id);
             setListings(prev => prev.filter(l => String(l.id) !== String(id)));
             showToast(t('success_deleted'));
-        } catch (error) {
-            console.error('Delete error:', error);
-            showToast(t('error_occurred'), 'error');
+        } catch (error: any) {
+            if (error.message !== 'ACCESS_DENIED') {
+                console.error('Delete error:', error);
+                showToast(t('error_occurred'), 'error');
+            }
         }
     }
 
@@ -236,7 +259,7 @@ export default function AdminListingsPage() {
         try {
             const success = await rejectListing(id, reason);
             if (success) {
-                setListings(prev => prev.map(l => String(l.id) === String(id) ? { ...l, status: 'rejected', is_available: false } : l));
+                setListings(prev => prev.map(l => String(l.id) === String(id) ? { ...l, status: 'rejected', is_available: false, rejection_reason: reason } : l));
                 showToast(t('success_rejected'));
             } else {
                 showToast(t('failed_to_reject'), 'error');
@@ -303,6 +326,55 @@ export default function AdminListingsPage() {
         return matchesSearch && matchesCategory && matchesCity && matchesStatus && matchesDate && matchesUser;
     });
 
+    const handleToggleFeatured = async (id: string | number) => {
+        try {
+            const result = await toggleFeaturedListing(id);
+            setListings(prev => prev.map(l => String(l.id) === String(id) ? { ...l, is_featured: result.is_featured } : l));
+            showToast(result.is_featured ? 'Annonce mise en avant' : 'Annonce retirée de la mise en avant');
+        } catch (error) {
+            showToast('Une erreur est survenue', 'error');
+        }
+    };
+
+    const isAllSelected = filteredListings.length > 0 && Array.from(selectedIds).length === filteredListings.length;
+
+    const toggleSelectAll = () => {
+        if (isAllSelected) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredListings.map(l => l.id)));
+        }
+    };
+
+    const toggleSelect = (id: number | string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    async function handleBulkDelete() {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer ${selectedIds.size} annonces ?`)) return;
+
+        setBulkActionLoading(true);
+        try {
+            const idsArray = Array.from(selectedIds);
+            await bulkDeleteListings(idsArray);
+            setListings(prev => prev.filter(l => !selectedIds.has(l.id)));
+            setSelectedIds(new Set());
+            showToast(`${idsArray.length} annonces supprimées`);
+        } catch (error) {
+            showToast(t('error_occurred'), 'error');
+        } finally {
+            setBulkActionLoading(false);
+        }
+    }
+
     const visibleListings = filteredListings.slice(0, visibleCount);
     const hasMore = visibleCount < filteredListings.length;
 
@@ -344,12 +416,67 @@ export default function AdminListingsPage() {
         );
     }
 
+    if (error === 'ACCESS_DENIED' || (!currentUser || currentUser.role !== 'ADMIN')) {
+        return (
+            <div className={styles.container}>
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <ShieldAlert size={48} className="text-red-500 mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Accès Refusé</h2>
+                    <p className="text-slate-600 mb-6 max-w-md">
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                        Veuillez vous connecter avec un compte administrateur.
+                    </p>
+                    <button
+                        onClick={() => window.location.href = '/login'}
+                        className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+                    >
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.container}>
+                <div className="p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Une erreur est survenue</h2>
+                    <p className="text-slate-600 mb-6">Impossible de charger la liste des annonces.</p>
+                    <button onClick={loadData} className="bg-black text-white px-6 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors">Réessayer</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.container}>
             <header className={styles.header}>
                 <div>
                     <h1 className={styles.title}>{t('title')}</h1>
                     <p className={styles.subtitle}>{t('subtitle')}</p>
+                </div>
+                <div className="flex gap-3">
+                    <button 
+                        className={`${styles.selectAllBtn} ${isAllSelected ? styles.selected : ''}`}
+                        onClick={toggleSelectAll}
+                        title={isAllSelected ? "Désélectionner tout" : "Tout sélectionner"}
+                    >
+                        {isAllSelected ? <CheckCircle2 size={18} /> : <div className={styles.checkboxPlaceholder}></div>}
+                        <span>{isAllSelected ? "Tout désélectionner" : "Tout sélectionner"}</span>
+                    </button>
+                    
+                    {selectedIds.size > 0 && (
+                        <button 
+                            className={styles.headerDeleteBtn}
+                            onClick={handleBulkDelete}
+                            disabled={bulkActionLoading}
+                        >
+                            <Trash2 size={18} />
+                            <span>Supprimer ({selectedIds.size})</span>
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -475,10 +602,19 @@ export default function AdminListingsPage() {
                     return (
                         <div
                             key={listing.id}
-                            className={styles.listingCard}
+                            className={`${styles.listingCard} ${selectedIds.has(listing.id) ? styles.selectedCard : ''}`}
                             onClick={() => { setSelectedListing(listing); setIsModalOpen(true); }}
                             style={{ cursor: 'pointer' }}
                         >
+                            {/* Selection Checkbox */}
+                            <div 
+                                className={styles.selectionOverlay}
+                                onClick={(e) => toggleSelect(listing.id, e)}
+                            >
+                                <div className={`${styles.customCheckbox} ${selectedIds.has(listing.id) ? styles.checked : ''}`}>
+                                    {selectedIds.has(listing.id) && <CheckCircle2 size={16} />}
+                                </div>
+                            </div>
                             {/* Status Badge */}
                             {listing.status === 'active' && (
                                 <span className={`${styles.cardBadge} ${styles.cardBadgeActive}`}>
@@ -492,11 +628,27 @@ export default function AdminListingsPage() {
                                     EN ATTENTE
                                 </span>
                             )}
+
+                            {/* Featured Badge */}
+                            {listing.is_featured && (
+                                <div className={styles.featuredBadge}>
+                                    <Star size={10} fill="currentColor" />
+                                    <span>EN VEDETTE</span>
+                                </div>
+                            )}
                             {listing.status === 'rejected' && (
-                                <span className={`${styles.cardBadge} ${styles.cardBadgeRejected}`}>
-                                    <XCircle size={10} />
-                                    REJETÉ
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                    <span className={`${styles.cardBadge} ${styles.cardBadgeRejected}`}>
+                                        <XCircle size={10} />
+                                        REJETÉ
+                                    </span>
+                                    {listing.rejection_reason && (
+                                        <div className="px-2 py-1 bg-red-50 text-[10px] text-red-600 rounded-md border border-red-100 flex items-start gap-1 max-w-[150px] mx-2 z-10">
+                                            <AlertCircle size={10} className="shrink-0 mt-0.5" />
+                                            <span className="truncate" title={listing.rejection_reason}>{listing.rejection_reason}</span>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                             {(listing.status === 'inactive' || listing.status === 'hidden') && (
                                 <span className={`${styles.cardBadge} ${styles.cardBadgeInactive}`}>
@@ -553,6 +705,13 @@ export default function AdminListingsPage() {
                                     ID: #{listing.id}
                                 </div>
                                 <div className={styles.listingCardActions}>
+                                    <button 
+                                        className={styles.quickDeleteBtn}
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(listing.id); }}
+                                        title={t('delete')}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                     <ActionMenu
                                         listing={listing}
                                         onApprove={handleApprove}
@@ -664,6 +823,34 @@ export default function AdminListingsPage() {
                                     </div>
                                     <span className={styles.modalStatusText}>Inactif</span>
                                 </button>
+
+                                <button
+                                    className={`${styles.modalStatusBtn} ${selectedListing.is_featured ? styles.modalStatusBtnFeatured : styles.modalStatusBtnNotFeatured}`}
+                                    onClick={() => {
+                                        handleToggleFeatured(selectedListing.id);
+                                        setIsModalOpen(false);
+                                    }}
+                                >
+                                    <div className={`${styles.modalStatusIcon} ${selectedListing.is_featured ? styles.modalStatusIconFeatured : styles.modalStatusIconNotFeatured}`}>
+                                        <Star size={18} fill={selectedListing.is_featured ? "currentColor" : "none"} />
+                                    </div>
+                                    <span className={styles.modalStatusText}>
+                                        {selectedListing.is_featured ? 'Vedette (O)' : 'Vedette (N)'}
+                                    </span>
+                                </button>
+
+                                <button
+                                    className={`${styles.modalStatusBtn} ${styles.modalStatusBtnDelete}`}
+                                    onClick={() => {
+                                        handleDelete(selectedListing.id);
+                                        setIsModalOpen(false);
+                                    }}
+                                >
+                                    <div className={`${styles.modalStatusIcon} ${styles.modalStatusIconDelete}`}>
+                                        <Trash2 size={18} />
+                                    </div>
+                                    <span className={styles.modalStatusText}>Supprimer</span>
+                                </button>
                             </div>
                         </div>
 
@@ -706,6 +893,47 @@ export default function AdminListingsPage() {
                     to { transform: translateX(0); opacity: 1; }
                 }
             `}</style>
+
+            {/* Floating Bulk Action Bar */}
+            {selectedIds.size > 0 && (
+                <div className={styles.bulkActionBar}>
+                    <div className={styles.bulkActionContent}>
+                        <div className={styles.bulkActionInfo}>
+                            <div className={styles.selectionCount}>
+                                {selectedIds.size}
+                            </div>
+                            <span className={styles.bulkActionText}>
+                                {selectedIds.size > 1 ? "Annonces sélectionnées" : "Annonce sélectionnée"}
+                            </span>
+                        </div>
+                        
+                        <div className={styles.bulkActionDivider}></div>
+
+                        <div className={styles.bulkActionButtons}>
+                            <button 
+                                className={styles.bulkCancelBtn}
+                                onClick={(e) => { e.stopPropagation(); setSelectedIds(new Set()); }}
+                            >
+                                Annuler
+                            </button>
+                            <button 
+                                className={styles.bulkDeleteBtn}
+                                onClick={(e) => { e.stopPropagation(); handleBulkDelete(); }}
+                                disabled={bulkActionLoading}
+                            >
+                                {bulkActionLoading ? (
+                                    <Loader2 className="animate-spin" size={18} />
+                                ) : (
+                                    <>
+                                        <Trash2 size={18} />
+                                        Supprimer
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

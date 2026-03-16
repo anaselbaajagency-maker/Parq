@@ -1,14 +1,17 @@
 /* Payment Methods Admin Styles */
 .container {
-    max-width: 1200px;
+    max-width: 1000px;
     margin: 0 auto;
-    padding: 32px 24px;
+    padding: 40px 24px;
     background-color: #f8fafc;
     min-height: 100vh;
 }
 
 .header {
     margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .title {
@@ -26,22 +29,22 @@
 }
 
 .grid {
-    display: grid;
-    gap: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 /* Card Style for Payment Methods */
 .methodCard {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 20px;
     padding: 24px;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    border-radius: 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 .methodCard:hover {
@@ -58,15 +61,16 @@
 
 /* Icon Area */
 .iconWrapper {
-    width: 64px;
-    height: 64px;
+    width: 60px;
+    height: 60px;
     background: #f1f5f9;
     border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #64748b;
-    transition: all 0.2s;
+    color: #475569;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 .methodCard:hover .iconWrapper {
@@ -104,6 +108,14 @@
     font-size: 14px;
     color: #64748b;
     line-height: 1.5;
+    margin: 0;
+}
+
+.switchWrapper {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 /* Actions Area */
@@ -114,11 +126,30 @@
 }
 
 .editBtn {
-    padding: 10px 20px;
+    padding: 10px;
     border-radius: 10px;
     border: 1px solid #e2e8f0;
     background: white;
     color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.editBtn:hover {
+    background: #fffbeb;
+    border-color: #ffb800;
+    color: #000000;
+}
+
+.addBtn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #0f172a;
+    color: white;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -128,10 +159,28 @@
     gap: 8px;
 }
 
-.editBtn:hover {
-    background: #fffbeb;
-    border-color: #ffb800;
-    color: #000000;
+.addBtn:hover {
+    background: #1e293b;
+    transform: translateY(-1px);
+}
+
+.deleteBtn {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #fee2e2;
+    background: #fef2f2;
+    color: #ef4444;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.deleteBtn:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+    color: #b91c1c;
 }
 
 /* Toggle Switch */
@@ -392,4 +441,90 @@ input:checked+.slider:before {
         grid-column: 1 / -1;
         justify-content: flex-end;
     }
+}
+
+/* Bulk Actions & Selection */
+.selectAllBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748B;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.selectAllBtn:hover {
+    background: #F1F5F9;
+    border-color: #CBD5E1;
+    color: #475569;
+}
+
+.selectAllBtn.selected {
+    background: #0F172A;
+    border-color: #0F172A;
+    color: white;
+}
+
+.headerDeleteBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    background: #EF4444;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.headerDeleteBtn:hover {
+    background: #DC2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.checkboxPlaceholder {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #CBD5E1;
+    border-radius: 4px;
+}
+
+.customCheckbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #CBD5E1;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.customCheckbox.checked {
+    background: #000;
+    border-color: #000;
+    color: white;
+}
+
+.selectedRow td {
+    background: #F8FAFC !important;
 }

@@ -3,27 +3,33 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminCouponIndexRequest;
+use App\Http\Requests\Admin\AdminCouponStoreRequest;
+use App\Http\Requests\Admin\AdminCouponUpdateRequest;
 use App\Models\Coupon;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class AdminCouponController extends Controller
 {
+    public function __construct(
+        protected AuditLogService $auditLogService
+    ) {}
+
     /**
      * Get all coupons.
      *
      * GET /api/admin/coupons
      */
-    public function index(Request $request): JsonResponse
+    public function index(AdminCouponIndexRequest $request): JsonResponse
     {
         $query = Coupon::query();
 
-        if ($request->has('active_only')) {
+        if ($request->boolean('active_only')) {
             $query->active();
         }
 
-        if ($request->has('valid_only')) {
+        if ($request->boolean('valid_only')) {
             $query->valid();
         }
 
@@ -42,24 +48,29 @@ class AdminCouponController extends Controller
      *
      * POST /api/admin/coupons
      */
-    public function store(Request $request): JsonResponse
+    public function store(AdminCouponStoreRequest $request): JsonResponse
     {
-        $request->validate([
-            'code' => 'required|string|min:3|max:20|unique:coupons,code',
-            'credit_amount' => 'required|integer|min:1|max:10000',
-            'max_uses' => 'integer|min:1',
-            'expires_at' => 'nullable|date|after:now',
-            'description' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         $coupon = Coupon::create([
-            'code' => strtoupper($request->input('code')),
-            'credit_amount' => $request->input('credit_amount'),
-            'max_uses' => $request->input('max_uses', 1),
-            'expires_at' => $request->input('expires_at'),
-            'description' => $request->input('description'),
+            'code' => strtoupper((string) $validated['code']),
+            'credit_amount' => $validated['credit_amount'],
+            'max_uses' => $validated['max_uses'] ?? 1,
+            'expires_at' => $validated['expires_at'] ?? null,
+            'description' => $validated['description'] ?? null,
             'is_active' => true,
         ]);
+
+        $this->auditLogService->log(
+            'admin.coupon.created',
+            $request->user(),
+            'coupon',
+            $coupon->id,
+            [
+                'code' => $coupon->code,
+                'credit_amount' => $coupon->credit_amount,
+            ]
+        );
 
         return response()->json([
             'success' => true,
@@ -98,27 +109,17 @@ class AdminCouponController extends Controller
      *
      * PUT /api/admin/coupons/{id}
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(AdminCouponUpdateRequest $request, int $id): JsonResponse
     {
         $coupon = Coupon::findOrFail($id);
+        $coupon->update($request->validated());
 
-        $request->validate([
-            'code' => ['string', 'min:3', 'max:20', Rule::unique('coupons')->ignore($coupon->id)],
-            'credit_amount' => 'integer|min:1|max:10000',
-            'max_uses' => 'integer|min:1',
-            'expires_at' => 'nullable|date',
-            'description' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-        ]);
-
-        $coupon->update($request->only([
-            'code',
-            'credit_amount',
-            'max_uses',
-            'expires_at',
-            'description',
-            'is_active',
-        ]));
+        $this->auditLogService->log(
+            'admin.coupon.updated',
+            $request->user(),
+            'coupon',
+            $coupon->id
+        );
 
         return response()->json([
             'success' => true,
@@ -147,9 +148,54 @@ class AdminCouponController extends Controller
 
         $coupon->delete();
 
+        $this->auditLogService->log(
+            'admin.coupon.deleted',
+            request()->user(),
+            'coupon',
+            $id
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Coupon supprimé',
+        ]);
+    }
+
+    /**
+     * Bulk delete coupons.
+     *
+     * POST /api/admin/coupons/bulk-delete
+     */
+    public function bulkDestroy(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:coupons,id',
+        ]);
+
+        $ids = $request->input('ids');
+        $coupons = Coupon::whereIn('id', $ids)->get();
+
+        $deletedCount = 0;
+        foreach ($coupons as $coupon) {
+            // Only delete if it's NOT been used
+            if ($coupon->used_count === 0) {
+                $coupon->delete();
+                $deletedCount++;
+
+                $this->auditLogService->log(
+                    'admin.coupon.deleted',
+                    $request->user(),
+                    'coupon',
+                    $coupon->id
+                );
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deletedCount} coupons supprimés avec succès.",
+            'deleted_count' => $deletedCount,
         ]);
     }
 
@@ -162,6 +208,16 @@ class AdminCouponController extends Controller
     {
         $coupon = Coupon::findOrFail($id);
         $coupon->update(['is_active' => ! $coupon->is_active]);
+
+        $this->auditLogService->log(
+            'admin.coupon.toggled',
+            request()->user(),
+            'coupon',
+            $coupon->id,
+            [
+                'is_active' => $coupon->is_active,
+            ]
+        );
 
         return response()->json([
             'success' => true,
