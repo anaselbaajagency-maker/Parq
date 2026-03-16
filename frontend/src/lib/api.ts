@@ -133,7 +133,7 @@ export interface NotificationResponse {
     total: number;
 }
 
-const API_URL = process.env.NODE_ENV === 'development' ? '/api-backend' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api');
+const API_URL = process.env.NODE_ENV === 'development' ? '/api-backend' : (process.env.NEXT_PUBLIC_API_URL || 'https://api.parq.ma/api');
 export const API_BASE_URL = API_URL;
 
 if (typeof window !== 'undefined') {
